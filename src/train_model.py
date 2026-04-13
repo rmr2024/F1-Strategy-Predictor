@@ -1,90 +1,135 @@
 import pandas as pd
 import numpy as np
-import joblib
-from xgboost import XGBClassifier
-from sklearn.metrics import classification_report, precision_recall_curve
-from sklearn.model_selection import train_test_split
-from src.data_loader import load_season_data
-from src.feature_engineering import prepare_training_data, get_feature_columns
-import os
+from typing import Tuple, Optional
+from src.feature_engineering import engineer_features, get_feature_columns
 
-MODEL_DIR = "models"
-os.makedirs(MODEL_DIR, exist_ok=True)
+try:
+    from xgboost import XGBClassifier
+    HAS_XGB = True
+except ImportError:
+    HAS_XGB = False
 
+try:
+    from sklearn.ensemble import GradientBoostingClassifier
+    HAS_SKLEARN = True
+except ImportError:
+    HAS_SKLEARN = False
 
-def load_training_data(years: list = [2021, 2022]) -> pd.DataFrame:
-    cache_path = f"{MODEL_DIR}/training_data_cache.pkl"
-    if os.path.exists(cache_path):
-        print("Loading cached training data...")
-        return pd.read_pickle(cache_path)
-    print("Loading and engineering features...")
-    df = load_season_data(years)
-    df = prepare_training_data(df)
-    df.to_pickle(cache_path)
-    return df
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
 
 
-def calculate_class_weight(df: pd.DataFrame) -> float:
-    y = df['PitNextLap']
-    n_pits = y.sum()
-    n_non_pits = len(y) - n_pits
-    return n_non_pits / n_pits if n_pits > 0 else 1.0
-
-
-def tune_threshold(model, X_val: np.ndarray, y_val: np.ndarray) -> float:
-    y_proba = model.predict_proba(X_val)[:, 1]
-    precision, recall, thresholds = precision_recall_curve(y_val, y_proba)
-    f1_scores = 2 * (precision * recall) / (precision + recall + 1e-10)
-    best_idx = np.argmax(f1_scores)
-    return thresholds[best_idx] if best_idx < len(thresholds) else 0.5
-
-
-def train_model(train_years: list = [2021, 2022], test_year: int = 2023):
-    df = load_training_data(train_years)
+def train_model(df: pd.DataFrame) -> Tuple[object, dict]:
+    if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+        raise ValueError("Training data is empty or None")
+    
+    df = engineer_features(df)
     feature_cols = get_feature_columns()
     available = [c for c in feature_cols if c in df.columns]
     
-    X = df[available].fillna(0)
-    y = df['PitNextLap']
+    if len(available) == 0:
+        raise ValueError("No features available for training")
     
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X = df[available].fillna(0).replace([np.inf, -np.inf], 0)
+    y = df['PitNextLap'].fillna(0).astype(int)
     
-    scale_pos = calculate_class_weight(df)
-    print(f"Class imbalance ratio: {scale_pos:.2f}")
+    valid_idx = ~(X.isna().any(axis=1) | X.isnull().any(axis=1))
+    X = X[valid_idx]
+    y = y[valid_idx]
     
-    model = XGBClassifier(
-        n_estimators=200,
-        max_depth=6,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        scale_pos_weight=scale_pos,
-        eval_metric='logloss',
-        use_label_encoder=False,
-        random_state=42
-    )
+    if len(y.unique()) < 2:
+        raise ValueError("Training data must contain both classes (pit and no-pit)")
     
-    print("Training XGBoost model...")
-    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    n_pits = y.sum()
+    n_non_pits = len(y) - n_pits
+    scale_pos = n_non_pits / n_pits if n_pits > 0 else 1.0
     
-    y_pred = model.predict(X_val)
-    print("\nValidation Results:")
-    print(classification_report(y_val, y_pred))
+    if HAS_XGB:
+        model = XGBClassifier(
+            n_estimators=100,
+            max_depth=5,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            scale_pos_weight=scale_pos,
+            eval_metric='logloss',
+            random_state=42,
+            n_jobs=-1
+        )
+    elif HAS_SKLEARN:
+        model = GradientBoostingClassifier(
+            n_estimators=100,
+            max_depth=5,
+            learning_rate=0.1,
+            subsample=0.8,
+            random_state=42
+        )
+    else:
+        raise ImportError("Neither xgboost nor sklearn is available")
     
-    threshold = tune_threshold(model, X_val, y_val)
-    print(f"Optimal threshold: {threshold:.3f}")
+    model.fit(X, y)
     
-    model_path = f"{MODEL_DIR}/xgb_model.pkl"
-    joblib.dump(model, model_path)
-    print(f"Model saved to {model_path}")
+    default_threshold = 0.5
     
-    joblib.dump({'threshold': threshold, 'feature_cols': available}, f"{MODEL_DIR}/model_config.pkl")
-    print(f"Config saved to {MODEL_DIR}/model_config.pkl")
+    config = {
+        'threshold': default_threshold,
+        'feature_cols': available,
+        'scale_pos_weight': scale_pos,
+        'model_type': 'XGBoost' if HAS_XGB else 'Sklearn'
+    }
     
-    return model, threshold
+    return model, config
+
+
+@st.cache_resource(show_spinner="Training pit stop prediction model...")
+def get_cached_model(_df_for_hash: pd.DataFrame) -> Tuple[object, dict]:
+    return train_model(_df_for_hash)
+
+
+def predict_pit(model: object, df: pd.DataFrame, config: Optional[dict] = None) -> pd.DataFrame:
+    if model is None:
+        raise ValueError("Model is required for prediction")
+    
+    df = df.copy()
+    
+    try:
+        df = engineer_features(df)
+    except Exception:
+        pass
+    
+    feature_cols = config.get('feature_cols', get_feature_columns()) if config else get_feature_columns()
+    available = [c for c in feature_cols if c in df.columns]
+    
+    if len(available) == 0:
+        df['PitProbability'] = 0.5
+        df['PredictedPit'] = 0
+        return df
+    
+    X = df[available].fillna(0).replace([np.inf, -np.inf], 0)
+    
+    try:
+        df['PitProbability'] = model.predict_proba(X)[:, 1]
+    except Exception:
+        df['PitProbability'] = 0.5
+    
+    threshold = config.get('threshold', 0.5) if config else 0.5
+    df['PredictedPit'] = (df['PitProbability'] >= threshold).astype(int)
+    
+    return df
 
 
 if __name__ == "__main__":
-    train_model()
+    from src.data_loader import load_season_data
+    
+    print("Loading training data...")
+    df = load_season_data([2021, 2022])
+    
+    print("Training model...")
+    model, config = train_model(df)
+    
+    print(f"Model type: {config['model_type']}")
+    print(f"Features: {config['feature_cols']}")
+    print("Training complete!")

@@ -1,52 +1,90 @@
-import os
 import pandas as pd
 import numpy as np
-import joblib
-import streamlit as st
+from typing import Optional
 from src.feature_engineering import engineer_features, get_feature_columns
 
-MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 
-
-@st.cache_resource
-def load_model():
-    model = joblib.load(os.path.join(MODEL_DIR, "xgb_model.pkl"))
-    config = joblib.load(os.path.join(MODEL_DIR, "model_config.pkl"))
-    return model, config
-
-
-def predict_pit_stops(df: pd.DataFrame, threshold: float = None) -> pd.DataFrame:
-    model, config = load_model()
-    if threshold is None:
-        threshold = config['threshold']
+def predict_pit(model: object, df: pd.DataFrame, config: Optional[dict] = None) -> pd.DataFrame:
+    if model is None:
+        df = df.copy()
+        df['PitProbability'] = 0.5
+        df['PredictedPit'] = 0
+        return df
     
-    df = engineer_features(df)
-    feature_cols = config['feature_cols']
+    df = df.copy()
     
-    X = df[feature_cols].fillna(0)
-    df['PitProbability'] = model.predict_proba(X)[:, 1]
+    try:
+        df = engineer_features(df)
+    except Exception:
+        pass
+    
+    feature_cols = config.get('feature_cols', get_feature_columns()) if config else get_feature_columns()
+    available = [c for c in feature_cols if c in df.columns]
+    
+    if len(available) == 0:
+        df['PitProbability'] = 0.5
+        df['PredictedPit'] = 0
+        return df
+    
+    X = df[available].fillna(0).replace([np.inf, -np.inf], 0)
+    
+    try:
+        df['PitProbability'] = model.predict_proba(X)[:, 1]
+    except Exception:
+        df['PitProbability'] = 0.5
+    
+    threshold = config.get('threshold', 0.5) if config else 0.5
     df['PredictedPit'] = (df['PitProbability'] >= threshold).astype(int)
     
     return df
 
 
-def get_pit_windows(df: pd.DataFrame, threshold: float = 0.5) -> list:
-    df = predict_pit_stops(df, threshold)
+def predict_pit_stops(df: pd.DataFrame, threshold: float = None, model=None, config=None) -> pd.DataFrame:
+    if model is None or config is None:
+        from src.train_model import get_cached_model, load_season_data
+        try:
+            training_df = load_season_data([2021, 2022])
+            model, config = get_cached_model(training_df)
+        except Exception:
+            df = df.copy()
+            df['PitProbability'] = 0.5
+            df['PredictedPit'] = 0
+            return df
+    
+    if threshold is not None:
+        config = config.copy()
+        config['threshold'] = threshold
+    
+    return predict_pit(model, df, config)
+
+
+def get_pit_windows(df: pd.DataFrame, threshold: float = 0.5, model=None, config=None) -> list:
+    df = predict_pit_stops(df, threshold, model, config)
     pit_laps = df[df['PredictedPit'] == 1][['LapNumber', 'PitProbability', 'Driver']].to_dict('records')
     return pit_laps
 
 
-def explain_prediction(df: pd.DataFrame, lap_idx: int) -> dict:
-    model, config = load_model()
-    feature_cols = config['feature_cols']
+def explain_prediction(df: pd.DataFrame, lap_idx: int, model=None, config=None) -> dict:
+    if model is None or config is None:
+        from src.train_model import get_cached_model, load_season_data
+        try:
+            training_df = load_season_data([2021, 2022])
+            model, config = get_cached_model(training_df)
+        except Exception:
+            return {'top_features': []}
     
-    X = df[feature_cols].fillna(0)
-    row = X.iloc[[lap_idx]]
+    feature_cols = config.get('feature_cols', get_feature_columns())
+    available = [c for c in feature_cols if c in df.columns]
     
-    exp = model.get_booster().trees_to_dataframe()
-    tree = model.get_booster()
+    if len(available) == 0:
+        return {'top_features': []}
     
-    importances = dict(zip(feature_cols, tree.feature_importances_))
-    sorted_imp = sorted(importances.items(), key=lambda x: x[1], reverse=True)[:5]
+    X = df[available].fillna(0).replace([np.inf, -np.inf], 0)
     
-    return {'top_features': sorted_imp}
+    try:
+        tree = model.get_booster()
+        importances = dict(zip(available, tree.feature_importances_))
+        sorted_imp = sorted(importances.items(), key=lambda x: x[1], reverse=True)[:5]
+        return {'top_features': sorted_imp}
+    except Exception:
+        return {'top_features': []}

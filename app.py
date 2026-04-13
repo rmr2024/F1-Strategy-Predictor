@@ -7,12 +7,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.data_loader import enable_caching, load_single_race, get_available_races
+from src.data_loader import enable_caching, load_single_race, load_season_data, get_available_races
 from src.feature_engineering import engineer_features
-from src.predict import predict_pit_stops, load_model
+from src.train_model import train_model, get_cached_model, predict_pit
 from src.utils import get_driver_color, format_time
 
-st.set_page_config(page_title="F1-DRS | Race Strategy", layout="wide", page_icon="")
+st.set_page_config(page_title="F1-DRS | Race Strategy", layout="wide", page_icon="🏎️")
 
 COLORS = {
     'bg': '#0E1117',
@@ -48,9 +48,29 @@ def load_race_data_cached(year, gp):
     return load_single_race(year, gp)
 
 
-def get_model_predictions(df, threshold):
+@st.cache_data(ttl=86400, show_spinner="Loading training data...")
+def load_training_data_cached():
+    enable_caching()
+    return load_season_data([2021, 2022])
+
+
+def get_trained_model():
     try:
-        df_pred = predict_pit_stops(df.copy(), threshold)
+        training_df = load_training_data_cached()
+        model, config = get_cached_model(training_df)
+        return model, config
+    except Exception as e:
+        st.warning(f"Could not train model: {e}")
+        return None, None
+
+
+def get_model_predictions(df, threshold, model, config):
+    try:
+        if model is None:
+            return df
+        df_pred = predict_pit(model, df.copy(), config)
+        if threshold is not None:
+            df_pred['PredictedPit'] = (df_pred['PitProbability'] >= threshold).astype(int)
         return df_pred
     except Exception as e:
         st.error(f"Prediction error: {e}")
@@ -155,7 +175,9 @@ def create_pit_probability_chart(df, driver):
 
 def main():
     st.title("F1-DRS")
-    st.markdown(f"### Race Strategy Predictor")
+    st.markdown("### Race Strategy Predictor")
+    
+    model, config = get_trained_model()
     
     col1, col2, col3 = st.columns([1, 1, 1])
     
@@ -177,7 +199,7 @@ def main():
         drivers = sorted(df['Driver'].unique())
         selected_driver = st.selectbox("Select Driver", drivers)
         
-        df_pred = get_model_predictions(df, threshold)
+        df_pred = get_model_predictions(df, threshold, model, config)
         
         st.markdown("---")
         
@@ -220,12 +242,12 @@ def main():
         st.markdown("---")
         
         with st.expander("Model Details"):
-            try:
-                _, config = load_model()
-                st.write(f"**Threshold**: {config['threshold']:.3f}")
-                st.write(f"**Features**: {config['feature_cols']}")
-            except Exception as e:
-                st.write("Model not loaded")
+            if model is not None and config is not None:
+                st.write(f"**Model Type**: {config.get('model_type', 'XGBoost')}")
+                st.write(f"**Default Threshold**: {config.get('threshold', 0.5):.3f}")
+                st.write(f"**Features**: {config.get('feature_cols', [])}")
+            else:
+                st.write("Model not available")
     
     except Exception as e:
         st.error(f"Error loading data: {e}")
