@@ -1,7 +1,9 @@
 import os
 import pandas as pd
 import fastf1
-from fastf1 import cached
+
+
+fastf1.Cache.enable_cache('/tmp')
 
 DATA_DIR = "data"
 YEARS = [2021, 2022, 2023]
