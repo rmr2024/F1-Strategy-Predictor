@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import fastf1
 
-
+# Enable cache for Streamlit Cloud (must be /tmp)
 fastf1.Cache.enable_cache('/tmp')
 
 DATA_DIR = "data"
@@ -10,46 +10,62 @@ YEARS = [2021, 2022, 2023]
 RACES_PER_YEAR = 20
 
 
-def enable_caching(cache_dir: str = "data/cache") -> None:
+def enable_caching(cache_dir: str = "/tmp") -> None:
+    """Ensure FastF1 caching is enabled"""
     os.makedirs(cache_dir, exist_ok=True)
-    cached.logger.setLevel(30)
     fastf1.Cache.enable_cache(cache_dir)
 
 
 def load_race_data(year: int, gp: str, session_type: str = "R") -> pd.DataFrame:
+    """Load a single race session"""
     session = fastf1.get_session(year, gp, session_type)
     session.load()
+
     laps = session.laps
-    df = laps[['Driver', 'LapTime', 'LapNumber', 'Compound', 'TyreLife', 
-               'Stint', 'TrackStatus', 'PitOutTime', 'PitInTime', 'SpeedI1', 
-               'SpeedI2', 'SpeedFL', 'SpeedST', 'Team']].copy()
+
+    df = laps[[
+        'Driver', 'LapTime', 'LapNumber', 'Compound', 'TyreLife',
+        'Stint', 'TrackStatus', 'PitOutTime', 'PitInTime',
+        'SpeedI1', 'SpeedI2', 'SpeedFL', 'SpeedST', 'Team'
+    ]].copy()
+
+    # Convert lap time to seconds
     df['LapTimeSeconds'] = df['LapTime'].dt.total_seconds()
+
     df['Year'] = year
     df['GrandPrix'] = gp
+
     return df
 
 
 def load_season_data(years: list = YEARS) -> pd.DataFrame:
+    """Load multiple seasons"""
     enable_caching()
+
     all_data = []
-    calendar = fastf1.get_event_schedule(years[0])['EventName'].tolist()
+
     for year in years:
         try:
             schedule = fastf1.get_event_schedule(year)
+
             for _, event in schedule.iterrows():
                 try:
                     gp = event['EventName']
                     df = load_race_data(year, gp)
                     all_data.append(df)
                     print(f"Loaded {year} {gp}")
+
                 except Exception as e:
                     print(f"Skipped {year} {gp}: {e}")
+
         except Exception as e:
             print(f"Schedule error {year}: {e}")
+
     return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
 
 
 def get_available_races(year: int) -> list:
+    """Return list of races for a given year"""
     try:
         schedule = fastf1.get_event_schedule(year)
         return schedule['EventName'].tolist()
@@ -58,5 +74,6 @@ def get_available_races(year: int) -> list:
 
 
 def load_single_race(year: int, gp: str, session_type: str = "R") -> pd.DataFrame:
+    """Load one race (used by Streamlit app)"""
     enable_caching()
     return load_race_data(year, gp, session_type)
