@@ -1,6 +1,6 @@
-# F1-DRS: Race Strategy Predictor
+# F1-SP: Race Strategy Predictor
 
-F1-DRS predicts when Formula 1 drivers will pit based on telemetry, tyre state, and race context. It helps teams anticipate pit windows and optimize race strategy.
+F1-SP predicts when Formula 1 drivers will pit based on telemetry, tyre state, and race context. It helps teams anticipate pit windows and optimize race strategy.
 
 ## Why It Matters
 
@@ -26,7 +26,7 @@ streamlit run app.py
 ## Project Structure
 
 ```
-F1-DRS/
+F1-SP/
 ├── src/               # Core modules
 │   ├── data_loader.py
 │   ├── feature_engineering.py
