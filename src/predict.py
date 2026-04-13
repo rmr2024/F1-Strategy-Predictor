@@ -1,14 +1,17 @@
+import os
 import pandas as pd
 import numpy as np
 import joblib
+import streamlit as st
 from src.feature_engineering import engineer_features, get_feature_columns
 
-MODEL_DIR = "models"
+MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 
 
+@st.cache_resource
 def load_model():
-    model = joblib.load(f"{MODEL_DIR}/xgb_model.pkl")
-    config = joblib.load(f"{MODEL_DIR}/model_config.pkl")
+    model = joblib.load(os.path.join(MODEL_DIR, "xgb_model.pkl"))
+    config = joblib.load(os.path.join(MODEL_DIR, "model_config.pkl"))
     return model, config
 
 

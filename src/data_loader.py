@@ -2,18 +2,25 @@ import os
 import pandas as pd
 import fastf1
 
-# Enable cache for Streamlit Cloud (must be /tmp)
-fastf1.Cache.enable_cache('/tmp')
-
 DATA_DIR = "data"
 YEARS = [2021, 2022, 2023]
 RACES_PER_YEAR = 20
 
+_cache_enabled = False
 
-def enable_caching(cache_dir: str = "/tmp") -> None:
-    """Ensure FastF1 caching is enabled"""
+
+def enable_caching(cache_dir: str = None) -> None:
+    """Ensure FastF1 caching is enabled (only once)"""
+    global _cache_enabled
+    if _cache_enabled:
+        return
+    
+    if cache_dir is None:
+        cache_dir = os.environ.get("FASTF1_CACHE_DIR", "/tmp")
+    
     os.makedirs(cache_dir, exist_ok=True)
     fastf1.Cache.enable_cache(cache_dir)
+    _cache_enabled = True
 
 
 def load_race_data(year: int, gp: str, session_type: str = "R") -> pd.DataFrame:

@@ -36,7 +36,13 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-@st.cache_data
+@st.cache_data(ttl=3600)
+def get_available_races_cached(year):
+    enable_caching()
+    return get_available_races(year)
+
+
+@st.cache_data(ttl=3600)
 def load_race_data_cached(year, gp):
     enable_caching()
     return load_single_race(year, gp)
@@ -156,7 +162,7 @@ def main():
     with col1:
         year = st.selectbox("Year", [2023, 2022, 2021], index=0)
     with col2:
-        races = get_available_races(year)
+        races = get_available_races_cached(year)
         gp = st.selectbox("Grand Prix", races[:10] if len(races) > 10 else races)
     with col3:
         threshold = st.slider("Pit Threshold", 0.1, 0.9, 0.5, 0.05)
@@ -215,7 +221,7 @@ def main():
         
         with st.expander("Model Details"):
             try:
-                model, config = load_model()
+                _, config = load_model()
                 st.write(f"**Threshold**: {config['threshold']:.3f}")
                 st.write(f"**Features**: {config['feature_cols']}")
             except Exception as e:
