@@ -870,7 +870,8 @@ def main():
         threshold = st.slider("Tyre Change Sensitivity", 0.1, 0.9, 0.5, 0.05, 
                              help="Lower values predict more tyre changes, higher values predict fewer")
         
-        st.markdown('<div class="spacer-md"></div></div>', unsafe_allow_html=True)
+        st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-header">Driver Selection</div>', unsafe_allow_html=True)
     
     try:
         with st.spinner("Loading race data..."):
