@@ -72,16 +72,27 @@ def get_circuit_info(year: int, gp: str) -> dict:
             'corners': circuit.corners.to_dict('records') if circuit.corners is not None else [],
             'rotation': circuit.rotation if circuit.rotation else 0,
             'location': session.event['Location'],
-            'name': session.event['Name']
+            'name': session.event['Name'],
+            'event_name': session.event['EventName']
         }
     except Exception as e:
         print(f"Error getting circuit info: {e}")
-        return {'corners': [], 'rotation': 0, 'location': '', 'name': gp}
+        return {'corners': [], 'rotation': 0, 'location': '', 'name': gp, 'event_name': gp}
 
 
 def get_track_coordinates(year: int, gp: str) -> list:
-    """Get actual track coordinates from fastest lap telemetry"""
+    """Get actual track coordinates from fastest lap telemetry with proper caching"""
+    import hashlib
+    
+    cache_key = f"{year}_{gp}_track_coords"
+    if hasattr(get_track_coordinates, '_cache') and cache_key in get_track_coordinates._cache:
+        return get_track_coordinates._cache[cache_key]
+    
+    if not hasattr(get_track_coordinates, '_cache'):
+        get_track_coordinates._cache = {}
+    
     try:
+        enable_caching()
         session = fastf1.get_session(year, gp, 'R')
         session.load(telemetry=True, laps=True, weather=False)
         
@@ -106,9 +117,10 @@ def get_track_coordinates(year: int, gp: str) -> list:
             rotated[:, 1] = track[:, 0] * sin_a + track[:, 1] * cos_a
             track = rotated
         
-        track_list = track.tolist()
+        track_list = [[float(t[0]), 0.0, float(t[1])] for t in track.tolist()]
         
-        return [[t[0], 0, t[1]] for t in track_list]
+        get_track_coordinates._cache[cache_key] = track_list
+        return track_list
     except Exception as e:
         print(f"Error getting track coordinates: {e}")
         return []

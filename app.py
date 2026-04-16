@@ -920,17 +920,25 @@ def create_track_points(track_info):
 def create_3d_circuit(gp_name="Default", year=2023):
     """Create 3D circuit visualization based on selected Grand Prix using real data"""
     
+    track_coords = []
+    data_source = "No data"
+    
     try:
         track_coords = get_track_coordinates(year, gp_name)
-    except:
+        if track_coords and len(track_coords) >= 10:
+            data_source = f"FastF1 Telemetry ({len(track_coords)} points)"
+        else:
+            raise ValueError("Insufficient track points")
+    except Exception as e:
+        print(f"Track data error: {e}")
         track_coords = []
     
     if not track_coords or len(track_coords) < 10:
         track_info = get_track_geometry(gp_name)
         track_coords = create_track_points(track_info)
         data_source = "Simulated (Real data unavailable)"
-    else:
-        data_source = "FastF1 Telemetry"
+    
+    print(f"DEBUG: {gp_name} ({year}) - Using {len(track_coords)} points - {data_source}")
     
     track_data_js = "[" + ",".join([f"[{float(x):.2f},{float(y):.2f},{float(z):.2f}]" for x, y, z in track_coords[:150]]) + "]"
     
