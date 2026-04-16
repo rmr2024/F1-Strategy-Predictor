@@ -89,15 +89,19 @@ def train_model(df: pd.DataFrame) -> Tuple[object, dict]:
     return model, config
 
 
+if HAS_STREAMLIT:
+    @st.cache_resource(show_spinner="Training pit stop prediction model...")
+    def _train_cached(df):
+        return train_model(df)
+else:
+    def _train_cached(df):
+        return train_model(df)
+
+
 def get_cached_model(_df_for_hash: pd.DataFrame) -> Tuple[object, dict]:
     if _df_for_hash is None or (_df_for_hash is not None and isinstance(_df_for_hash, pd.DataFrame) and _df_for_hash.empty):
         raise ValueError("Training data is empty")
-    if HAS_STREAMLIT:
-        @st.cache_resource(show_spinner="Training pit stop prediction model...")
-        def _train_cached(df):
-            return train_model(df)
-        return _train_cached(_df_for_hash)
-    return train_model(_df_for_hash)
+    return _train_cached(_df_for_hash)
 
 
 def predict_pit(model: object, df: pd.DataFrame, config: Optional[dict] = None) -> pd.DataFrame:
