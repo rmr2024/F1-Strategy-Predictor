@@ -1,6 +1,11 @@
 import pandas as pd
 import numpy as np
+import sys
+import os
 from typing import Tuple, Optional
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.feature_engineering import engineer_features, get_feature_columns
 
 try:
@@ -84,8 +89,14 @@ def train_model(df: pd.DataFrame) -> Tuple[object, dict]:
     return model, config
 
 
-@st.cache_resource(show_spinner="Training pit stop prediction model...")
 def get_cached_model(_df_for_hash: pd.DataFrame) -> Tuple[object, dict]:
+    if _df_for_hash is None or (_df_for_hash is not None and isinstance(_df_for_hash, pd.DataFrame) and _df_for_hash.empty):
+        raise ValueError("Training data is empty")
+    if HAS_STREAMLIT:
+        @st.cache_resource(show_spinner="Training pit stop prediction model...")
+        def _train_cached(df):
+            return train_model(df)
+        return _train_cached(_df_for_hash)
     return train_model(_df_for_hash)
 
 
@@ -124,8 +135,14 @@ def predict_pit(model: object, df: pd.DataFrame, config: Optional[dict] = None) 
 if __name__ == "__main__":
     from src.data_loader import load_season_data
     
-    print("Loading training data...")
-    df = load_season_data([2021, 2022])
+    print("Loading training data (limited to 2 races)...")
+    df = load_season_data(years=[2022], max_races_per_year=2)
+    
+    if df.empty:
+        print("No data loaded. Check your internet connection and FastF1 availability.")
+        sys.exit(1)
+    
+    print(f"Loaded {len(df)} lap records")
     
     print("Training model...")
     model, config = train_model(df)

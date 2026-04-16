@@ -4,6 +4,9 @@ import plotly.graph_objects as go
 import plotly.express as px
 import os
 import sys
+import warnings
+
+warnings.filterwarnings('ignore')
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -13,6 +16,8 @@ from src.train_model import train_model, get_cached_model, predict_pit
 from src.utils import get_driver_color, format_time
 
 st.set_page_config(page_title="F1-DRS | Race Strategy", layout="wide", page_icon="🏎️")
+
+os.environ["FASTF1_CACHE_DIR"] = "/tmp/fastf1_cache"
 
 COLORS = {
     'bg': '#0E1117',
@@ -48,15 +53,17 @@ def load_race_data_cached(year, gp):
     return load_single_race(year, gp)
 
 
-@st.cache_data(ttl=86400, show_spinner="Loading training data...")
+@st.cache_data(ttl=3600, show_spinner="Loading training data...")
 def load_training_data_cached():
     enable_caching()
-    return load_season_data([2021, 2022])
+    return load_season_data(years=[2022], max_races_per_year=2)
 
 
 def get_trained_model():
     try:
         training_df = load_training_data_cached()
+        if training_df.empty:
+            return None, None
         model, config = get_cached_model(training_df)
         return model, config
     except Exception as e:

@@ -43,7 +43,12 @@ def predict_pit_stops(df: pd.DataFrame, threshold: float = None, model=None, con
     if model is None or config is None:
         from src.train_model import get_cached_model, load_season_data
         try:
-            training_df = load_season_data([2021, 2022])
+            training_df = load_season_data(years=[2022], max_races_per_year=2)
+            if training_df.empty:
+                df = df.copy()
+                df['PitProbability'] = 0.5
+                df['PredictedPit'] = 0
+                return df
             model, config = get_cached_model(training_df)
         except Exception:
             df = df.copy()
@@ -68,7 +73,9 @@ def explain_prediction(df: pd.DataFrame, lap_idx: int, model=None, config=None) 
     if model is None or config is None:
         from src.train_model import get_cached_model, load_season_data
         try:
-            training_df = load_season_data([2021, 2022])
+            training_df = load_season_data(years=[2022], max_races_per_year=2)
+            if training_df.empty:
+                return {'top_features': []}
             model, config = get_cached_model(training_df)
         except Exception:
             return {'top_features': []}
