@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 import os
@@ -658,17 +659,167 @@ def create_strategy_timeline(df, driver):
     return fig
 
 
-def create_styled_dataframe(df, max_rows=10):
-    if df.empty:
+def create_circuit_visualization():
+    theta = np.linspace(0, 2*np.pi, 100)
+    
+    r_outer = 1.0
+    r_inner = 0.6
+    
+    x_outer = r_outer * np.cos(theta)
+    y_outer = r_outer * np.sin(theta)
+    x_inner = r_inner * np.cos(theta)
+    y_inner = r_inner * np.sin(theta)
+    
+    x_track = np.concatenate([x_outer, x_inner[::-1], [x_outer[0]]])
+    y_track = np.concatenate([y_outer, y_inner[::-1], [y_outer[0]]])
+    
+    turns = [
+        (0, "Start/Finish"),
+        (np.pi/4, "Turn 1"),
+        (np.pi/2, "Turn 2"),
+        (3*np.pi/4, "Turn 3"),
+        (np.pi, "Turn 4"),
+        (5*np.pi/4, "Turn 5"),
+        (3*np.pi/2, "Turn 6"),
+        (7*np.pi/4, "Turn 7")
+    ]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=x_track, y=y_track,
+        mode='lines',
+        fill='toself',
+        fillcolor='rgba(54, 113, 198, 0.1)',
+        line=dict(color='#3671C6', width=4),
+        name='Track'
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=[x_outer[0]], y=[y_outer[0]],
+        mode='markers+text',
+        marker=dict(color='#00D2BE', size=15, symbol='star'),
+        text=['START'],
+        textposition='top center',
+        textfont=dict(color='#00D2BE', size=12),
+        name='Start'
+    ))
+    
+    for angle, name in turns[1:6]:
+        x_pos = ((r_outer + r_inner) / 2) * np.cos(angle)
+        y_pos = ((r_outer + r_inner) / 2) * np.sin(angle)
+        fig.add_trace(go.Scatter(
+            x=[x_pos], y=[y_pos],
+            mode='markers+text',
+            marker=dict(color='#E10600', size=10),
+            text=[name],
+            textposition='top center',
+            textfont=dict(color='#E10600', size=10),
+            showlegend=False
+        ))
+    
+    fig.add_trace(go.Scatter(
+        x=[0], y=[0],
+        mode='markers',
+        marker=dict(color='#FFD700', size=20, symbol='circle'),
+        name='Center'
+    ))
+    
+    fig.update_layout(
+        paper_bgcolor='transparent',
+        plot_bgcolor='transparent',
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.3, 1.3]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.3, 1.3]),
+        showlegend=False,
+        height=350,
+        margin=dict(l=20, r=20, t=20, b=20)
+    )
+    
+    return fig
+
+
+def create_race_statistics(df):
+    if 'LapTimeSeconds' not in df.columns or df.empty:
         return None
     
-    display_df = df.head(max_rows).copy()
+    stats = df.groupby('Driver').agg({
+        'LapTimeSeconds': ['mean', 'min', 'count']
+    }).reset_index()
+    stats.columns = ['Driver', 'AvgLapTime', 'FastestLap', 'TotalLaps']
+    stats = stats.sort_values('AvgLapTime').head(10)
     
-    for col in display_df.columns:
-        if display_df[col].dtype in ['float64', 'float32']:
-            display_df[col] = display_df[col].round(3)
+    fig = px.bar(
+        stats,
+        x='Driver',
+        y='AvgLapTime',
+        title="Average Lap Times",
+        color='AvgLapTime',
+        color_continuous_scale='RdYlGn_r'
+    )
     
-    return display_df
+    fig.update_layout(
+        paper_bgcolor=COLORS['bg'],
+        plot_bgcolor=COLORS['bg'],
+        font=dict(color=COLORS['text']),
+        xaxis=dict(title="Driver", gridcolor=COLORS['grid']),
+        yaxis=dict(title="Avg Lap Time (s)", gridcolor=COLORS['grid']),
+        showlegend=False,
+        height=350
+    )
+    return fig
+
+
+def create_tyre_distribution(df):
+    if 'Compound' not in df.columns:
+        return None
+    
+    tyre_counts = df['Compound'].value_counts()
+    
+    colors = [get_tyre_color(c) for c in tyre_counts.index]
+    
+    fig = px.pie(
+        values= tyre_counts.values,
+        names= tyre_counts.index,
+        title="Tyre Compound Distribution",
+        color= tyre_counts.index,
+        color_discrete_map=TYRE_COLORS
+    )
+    
+    fig.update_layout(
+        paper_bgcolor=COLORS['bg'],
+        plot_bgcolor=COLORS['bg'],
+        font=dict(color=COLORS['text']),
+        height=350
+    )
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    return fig
+
+
+def create_driver_speed_heatmap(df):
+    if 'Driver' not in df.columns or 'LapTimeSeconds' not in df.columns:
+        return None
+    
+    pivot = df.pivot_table(values='LapTimeSeconds', index='Driver', columns='LapNumber', aggfunc='mean')
+    
+    if pivot.empty or pivot.shape[0] == 0:
+        return None
+    
+    pivot = pivot.head(10).iloc[:, :min(30, pivot.shape[1])]
+    
+    fig = px.imshow(
+        pivot,
+        labels=dict(x="Lap", y="Driver", color="Lap Time (s)"),
+        color_continuous_scale='RdYlGn_r',
+        aspect='auto'
+    )
+    
+    fig.update_layout(
+        paper_bgcolor=COLORS['bg'],
+        plot_bgcolor=COLORS['bg'],
+        font=dict(color=COLORS['text']),
+        height=350
+    )
+    return fig
 
 
 def render_beginner_explanation():
@@ -818,11 +969,9 @@ def render_predictions_tab(df, model, config, threshold):
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
-            fig_pos = create_finishing_position_chart(df)
-            if fig_pos:
-                st.plotly_chart(fig_pos, use_container_width=True)
-            else:
-                st.info("Position data not available for this race")
+            fig_circuit = create_circuit_visualization()
+            if fig_circuit:
+                st.plotly_chart(fig_circuit, use_container_width=True)
         
         with col2:
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
@@ -843,12 +992,33 @@ def render_predictions_tab(df, model, config, threshold):
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
     with st.container():
-        st.markdown('<div class="section-header">Position Timeline</div>', unsafe_allow_html=True)
-        fig_timeline = create_position_timeline(df)
-        if fig_timeline:
-            st.plotly_chart(fig_timeline, use_container_width=True)
+        st.markdown('<div class="section-header">Lap Time Analysis</div>', unsafe_allow_html=True)
+        
+        col_stats1, col_stats2 = st.columns(2)
+        
+        with col_stats1:
+            fig_stats = create_race_statistics(df)
+            if fig_stats:
+                st.plotly_chart(fig_stats, use_container_width=True)
+            else:
+                st.info("Lap time data not available")
+        
+        with col_stats2:
+            fig_tyre = create_tyre_distribution(df)
+            if fig_tyre:
+                st.plotly_chart(fig_tyre, use_container_width=True)
+            else:
+                st.info("Tyre data not available")
+    
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="section-header">Driver Speed Heatmap</div>', unsafe_allow_html=True)
+        fig_heat = create_driver_speed_heatmap(df)
+        if fig_heat:
+            st.plotly_chart(fig_heat, use_container_width=True)
         else:
-            st.info("Position timeline not available for this race")
+            st.info("Speed data not available")
     
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
