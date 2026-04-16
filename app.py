@@ -60,74 +60,315 @@ st.markdown(f"""
     
     /* Header Styling */
     .main-title {{
-        font-size: 2.5rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, {COLORS['accent_red']}, {COLORS['accent_blue']});
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, {COLORS['accent_red']} 0%, {COLORS['accent_blue']} 50%, {COLORS['accent_green']} 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        background-clip: text;
         margin-bottom: 0.5rem;
-        animation: fadeIn 0.5s ease-in;
+        animation: fadeIn 0.8s ease-out, titleGlow 3s ease-in-out infinite alternate;
+        text-shadow: 0 0 40px rgba(225, 6, 0, 0.3);
+    }}
+    
+    @keyframes titleGlow {{
+        from {{ text-shadow: 0 0 40px rgba(225, 6, 0, 0.3); }}
+        to {{ text-shadow: 0 0 60px rgba(54, 113, 198, 0.5); }}
     }}
     
     .subtitle {{
-        font-size: 1rem;
+        font-size: 1.1rem;
         color: {COLORS['text_muted']};
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
+        font-weight: 400;
+        letter-spacing: 0.5px;
     }}
     
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, {COLORS['card']}, {COLORS['bg']});
+        background: linear-gradient(180deg, {COLORS['card']} 0%, {COLORS['bg']} 100%);
         border-right: 1px solid {COLORS['grid']};
+        backdrop-filter: blur(10px);
     }}
     
     .sidebar-header {{
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: {COLORS['text']};
-        padding: 1rem 0;
-        border-bottom: 2px solid {COLORS['accent_red']};
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: {COLORS['text_muted']};
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        padding: 1.2rem 0 0.8rem 0;
+        border-bottom: 1px solid {COLORS['grid']};
         margin-bottom: 1rem;
     }}
     
-    /* Card Styling */
-    .dashboard-card {{
-        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
-        border-radius: 16px;
+    /* Glassmorphism Cards */
+    .glass-card {{
+        background: rgba(30, 30, 30, 0.7);
+        backdrop-filter: blur(12px);
+        border-radius: 20px;
         padding: 24px;
         margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        animation: fadeInUp 0.6s ease-out;
+    }}
+    
+    .glass-card:hover {{
+        transform: translateY(-4px) scale(1.01);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+        border-color: rgba(54, 113, 198, 0.3);
+    }}
+    
+    /* Dashboard Card */
+    .dashboard-card {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 20px;
+        padding: 28px;
+        margin-bottom: 24px;
         border: 1px solid {COLORS['grid']};
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         transition: all 0.3s ease;
     }}
     
     .dashboard-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     }}
     
+    /* Metric Cards */
     .metric-card {{
-        background: {COLORS['card']};
-        border-radius: 12px;
-        padding: 16px;
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 16px;
+        padding: 20px;
         text-align: center;
         border: 1px solid {COLORS['grid']};
-        transition: all 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     }}
     
     .metric-card:hover {{
         border-color: {COLORS['accent_blue']};
+        transform: scale(1.03);
+        box-shadow: 0 8px 24px rgba(54, 113, 198, 0.2);
     }}
     
     /* Beginner Box */
     .beginner-box {{
-        background: linear-gradient(135deg, {COLORS['card']}, {COLORS['card_light']});
+        background: linear-gradient(135deg, rgba(54, 113, 198, 0.15) 0%, rgba(30, 30, 30, 0.9) 100%);
         border-left: 4px solid {COLORS['accent_blue']};
-        padding: 20px;
-        border-radius: 12px;
-        margin: 15px 0;
-        animation: slideInLeft 0.4s ease-out;
+        padding: 24px;
+        border-radius: 16px;
+        margin: 20px 0;
+        animation: slideInLeft 0.5s ease-out, fadeIn 0.5s ease-out;
+        border: 1px solid rgba(54, 113, 198, 0.2);
     }}
+    
+    /* Explanation Card */
+    .explanation-card {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 20px;
+        padding: 28px;
+        margin: 20px 0;
+        border-left: 4px solid {COLORS['accent_green']};
+        animation: fadeInUp 0.5s ease-out;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }}
+    
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 6px;
+        background: {COLORS['card']};
+        padding: 8px;
+        border-radius: 16px;
+    }}
+    
+    .stTabs [data-baseweb="tab"] {{
+        background-color: transparent;
+        border-radius: 12px 12px 0 0;
+        padding: 14px 28px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }}
+    
+    .stTabs [aria-selected="true"] {{
+        background: linear-gradient(135deg, {COLORS['accent_red']}, #FF4444);
+        color: white;
+        box-shadow: 0 4px 15px rgba(225, 6, 0, 0.4);
+    }}
+    
+    /* Section Headers */
+    .section-header {{
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: {COLORS['text']};
+        margin: 2rem 0 1.2rem 0;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        letter-spacing: 0.5px;
+    }}
+    
+    .section-header::before {{
+        content: '';
+        width: 5px;
+        height: 28px;
+        background: linear-gradient(180deg, {COLORS['accent_red']}, {COLORS['accent_blue']});
+        border-radius: 3px;
+        box-shadow: 0 0 10px rgba(225, 6, 0, 0.5);
+    }}
+    
+    /* Animations */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; }}
+        to {{ opacity: 1; }}
+    }}
+    
+    @keyframes slideInLeft {{
+        from {{ transform: translateX(-30px); opacity: 0; }}
+        to {{ transform: translateX(0); opacity: 1; }}
+    }}
+    
+    @keyframes fadeInUp {{
+        from {{ transform: translateY(30px); opacity: 0; }}
+        to {{ transform: translateY(0); opacity: 1; }}
+    }}
+    
+    @keyframes slideUp {{
+        from {{ transform: translateY(20px); opacity: 0; }}
+        to {{ transform: translateY(0); opacity: 1; }}
+    }}
+    
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.6; }}
+    }}
+    
+    @keyframes scaleIn {{
+        from {{ transform: scale(0.9); opacity: 0; }}
+        to {{ transform: scale(1); opacity: 1; }}
+    }}
+    
+    .loading-pulse {{
+        animation: pulse 2s infinite;
+    }}
+    
+    .stagger-1 {{ animation-delay: 0.1s; }}
+    .stagger-2 {{ animation-delay: 0.2s; }}
+    .stagger-3 {{ animation-delay: 0.3s; }}
+    
+    /* Hide default Streamlit elements */
+    #MainMenu {{ visibility: hidden; }}
+    footer {{ visibility: hidden; }}
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {{
+        width: 8px;
+        height: 8px;
+    }}
+    
+    ::-webkit-scrollbar-track {{
+        background: {COLORS['bg']};
+    }}
+    
+    ::-webkit-scrollbar-thumb {{
+        background: linear-gradient(180deg, {COLORS['accent_red']}, {COLORS['accent_blue']});
+        border-radius: 4px;
+    }}
+    
+    ::-webkit-scrollbar-thumb:hover {{
+        background: linear-gradient(180deg, {COLORS['accent_blue']}, {COLORS['accent_green']});
+    }}
+    
+    /* Metrics */
+    div[data-testid="stMetric"] {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        padding: 18px;
+        border-radius: 14px;
+        border: 1px solid {COLORS['grid']};
+        transition: all 0.3s ease;
+    }}
+    
+    div[data-testid="stMetric"]:hover {{
+        border-color: {COLORS['accent_blue']};
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(54, 113, 198, 0.15);
+    }}
+    
+    /* Input styling */
+    .stSelectbox > div > div {{
+        background-color: {COLORS['card']};
+        border: 1px solid {COLORS['grid']};
+        border-radius: 12px;
+    }}
+    
+    .stSelectbox > div > div:hover {{
+        border-color: {COLORS['accent_blue']};
+    }}
+    
+    /* Spacing */
+    .spacer-sm {{ height: 10px; }}
+    .spacer-md {{ height: 25px; }}
+    .spacer-lg {{ height: 50px; }}
+    .spacer-xl {{ height: 80px; }}
+    
+    /* Chart container */
+    .chart-container {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 20px;
+        padding: 24px;
+        margin: 20px 0;
+        border: 1px solid {COLORS['grid']};
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        animation: scaleIn 0.4s ease-out;
+    }}
+    
+    /* Strategy block */
+    .strategy-block {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+        border: 2px solid;
+        transition: all 0.3s ease;
+        animation: fadeInUp 0.5s ease-out;
+    }}
+    
+    .strategy-block:hover {{
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }}
+    
+    /* Button styling */
+    .stButton > button {{
+        background: linear-gradient(135deg, {COLORS['accent_red']}, #FF4444);
+        border-radius: 12px;
+        padding: 12px 24px;
+        font-weight: 600;
+        border: none;
+        transition: all 0.3s ease;
+    }}
+    
+    .stButton > button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(225, 6, 0, 0.4);
+    }}
+    
+    /* Info/Warning boxes */
+    .stInfo, .stWarning {{
+        background: linear-gradient(135deg, rgba(54, 113, 198, 0.1), {COLORS['card']});
+        border-radius: 12px;
+        border: 1px solid rgba(54, 113, 198, 0.3);
+    }}
+    
+    /* Dataframe styling */
+    .stDataFrame {{
+        border-radius: 16px;
+        border: 1px solid {COLORS['grid']};
+    }}
+    </style>
+    """, unsafe_allow_html=True)
     
     .beginner-title {{
         color: {COLORS['accent_blue']};
@@ -620,8 +861,8 @@ def render_strategy_simulator():
     st.markdown("""
     <div class="beginner-box">
         <h3 style="margin-top:0; color: #3671C6;">Strategy Simulator</h3>
-        <p>Select your strategy parameters below to visualize different race scenarios.</p>
-        <p><em>Note: This feature simulates strategy scenarios based on historical data patterns.</em></p>
+        <p style="color: #A0A0A0;">Select your strategy parameters to visualize different race scenarios.</p>
+        <p style="color: #A0A0A0; font-size: 0.9rem;"><em>Based on historical F1 tyre degradation patterns and team strategies.</em></p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -655,18 +896,21 @@ def render_strategy_simulator():
     cols = st.columns(len(stints))
     for i, (compound, start_lap, end_lap) in enumerate(stints):
         color = get_tyre_color(compound)
+        lap_count = end_lap - start_lap + 1
+        
+        tyre_desc = {
+            "Soft": "Fastest, wears quickly",
+            "Medium": "Balanced performance",
+            "Hard": "Durable, slower pace"
+        }.get(compound, "")
+        
         with cols[i]:
             st.markdown(f"""
-            <div style="
-                background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
-                border-radius: 12px;
-                padding: 20px;
-                text-align: center;
-                border: 2px solid {color};
-            ">
-                <h4 style="margin:0; color: {color};">{compound}</h4>
-                <p style="margin:5px 0; color: {COLORS['text_muted']};">Laps {start_lap}-{end_lap}</p>
-                <p style="margin:0; font-size: 0.8rem; color: {COLORS['text_muted']};">{end_lap - start_lap + 1} laps</p>
+            <div class="strategy-block" style="border-color: {color};">
+                <h4 style="margin:0; color: {color}; font-size: 1.2rem;">{compound}</h4>
+                <p style="margin:8px 0; color: #A0A0A0; font-size: 0.9rem;">Laps {start_lap}-{end_lap}</p>
+                <p style="margin:0; color: #FAFAFA; font-weight: 600;">{lap_count} laps</p>
+                <p style="margin:8px 0 0 0; color: #A0A0A0; font-size: 0.8rem;">{ tyre_desc}</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -685,7 +929,13 @@ def render_strategy_simulator():
         st.metric("Est. Stop Time", f"+{estimated_time}s")
     with impact_col4:
         risk_level = "Low" if len(stints) == 1 else "Medium" if len(stints) == 2 else "High"
-        st.metric("Strategy Risk", risk_level)
+        risk_color = "#00D2BE" if risk_level == "Low" else "#FFD700" if risk_level == "Medium" else "#E10600"
+        st.markdown(f"""
+        <div style="background: linear-gradient(145deg, #1E1E1E, #262730); padding: 18px; border-radius: 14px; border: 1px solid #333; text-align: center;">
+            <p style="margin:0; color: #A0A0A0; font-size: 0.8rem;">Strategy Risk</p>
+            <p style="margin:8px 0 0 0; color: {risk_color}; font-weight: 700; font-size: 1.1rem;">{risk_level}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def render_predictions_tab(df, model, config, threshold):
@@ -845,8 +1095,12 @@ def render_explanation_tab(df, driver):
 
 
 def main():
-    st.markdown('<div class="main-title">F1 Strategy Predictor</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Machine Learning Race Predictions & Analysis</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align: center; padding: 20px 0;">
+        <div class="main-title">F1 Strategy Predictor</div>
+        <div class="subtitle">AI-Powered Race Predictions & Tyre Strategy Analysis</div>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
@@ -858,6 +1112,13 @@ def main():
     model, config = get_trained_model()
     
     with st.sidebar:
+        st.markdown("""
+        <div style="text-align: center; padding: 10px 0 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px;">
+            <h3 style="color: #E10600; margin: 0;">Configuration</h3>
+            <p style="color: #A0A0A0; font-size: 0.85rem; margin: 5px 0 0 0;">Customize your prediction</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown('<div class="sidebar-header">Race Selection</div>', unsafe_allow_html=True)
         
         year = st.selectbox("Year", [2023, 2022, 2021], index=0, label_visibility="collapsed")
@@ -885,6 +1146,8 @@ def main():
         selected_driver = st.selectbox("Select a driver to analyze:", drivers, index=0)
         
         df_pred = get_model_predictions(df, threshold, model, config)
+        
+        st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
         
         tab1, tab2, tab3 = st.tabs(["Predictions", "Explanation", "Strategy Simulator"])
         
