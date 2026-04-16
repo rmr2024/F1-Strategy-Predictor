@@ -23,6 +23,7 @@ COLORS = {
     'bg': '#0E1117',
     'card': '#1E1E1E',
     'card_light': '#262730',
+    'card_hover': '#2D2D2D',
     'text': '#FAFAFA',
     'text_muted': '#A0A0A0',
     'accent_red': '#E10600',
@@ -35,7 +36,9 @@ COLORS = {
     'hard': '#FFFFFF',
     'good': '#00D2BE',
     'poor': '#E10600',
-    'risky': '#FFD700'
+    'risky': '#FFD700',
+    'gradient_start': '#1E1E1E',
+    'gradient_end': '#0E1117'
 }
 
 TYRE_COLORS = {
@@ -48,38 +51,209 @@ TYRE_COLORS = {
 
 st.markdown(f"""
     <style>
-    .stApp {{ background-color: {COLORS['bg']}; }}
-    .stSelectbox label, .stSlider label, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 
-    {{ color: {COLORS['text']} !important; }}
-    div[data-testid="stMetricValue"] {{ color: {COLORS['text']} !important; }}
-    div[data-testid="stMetricLabel"] {{ color: {COLORS['text_muted']} !important; }}
-    .css-1d391kg {{ padding-top: 1rem; }}
-    .feature-card {{
-        background-color: {COLORS['card']};
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 15px;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    .stApp {{
+        background-color: {COLORS['bg']};
+        font-family: 'Inter', sans-serif;
     }}
-    .strategy-block {{
-        display: inline-block;
-        padding: 10px 20px;
-        border-radius: 5px;
-        margin: 5px;
-        font-weight: bold;
+    
+    /* Header Styling */
+    .main-title {{
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, {COLORS['accent_red']}, {COLORS['accent_blue']});
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+        animation: fadeIn 0.5s ease-in;
+    }}
+    
+    .subtitle {{
+        font-size: 1rem;
+        color: {COLORS['text_muted']};
+        margin-bottom: 1.5rem;
+    }}
+    
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, {COLORS['card']}, {COLORS['bg']});
+        border-right: 1px solid {COLORS['grid']};
+    }}
+    
+    .sidebar-header {{
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: {COLORS['text']};
+        padding: 1rem 0;
+        border-bottom: 2px solid {COLORS['accent_red']};
+        margin-bottom: 1rem;
+    }}
+    
+    /* Card Styling */
+    .dashboard-card {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 20px;
+        border: 1px solid {COLORS['grid']};
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+    }}
+    
+    .dashboard-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }}
+    
+    .metric-card {{
+        background: {COLORS['card']};
+        border-radius: 12px;
+        padding: 16px;
         text-align: center;
+        border: 1px solid {COLORS['grid']};
+        transition: all 0.2s ease;
     }}
+    
+    .metric-card:hover {{
+        border-color: {COLORS['accent_blue']};
+    }}
+    
+    /* Beginner Box */
     .beginner-box {{
-        background-color: {COLORS['card_light']};
+        background: linear-gradient(135deg, {COLORS['card']}, {COLORS['card_light']});
         border-left: 4px solid {COLORS['accent_blue']};
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-    }}
-    .explanation-card {{
-        background-color: {COLORS['card']};
-        border-radius: 10px;
         padding: 20px;
-        margin: 10px 0;
+        border-radius: 12px;
+        margin: 15px 0;
+        animation: slideInLeft 0.4s ease-out;
+    }}
+    
+    .beginner-title {{
+        color: {COLORS['accent_blue']};
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }}
+    
+    /* Explanation Card */
+    .explanation-card {{
+        background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+        border-radius: 16px;
+        padding: 24px;
+        margin: 15px 0;
+        border-left: 4px solid {COLORS['accent_green']};
+        animation: fadeInUp 0.4s ease-out;
+    }}
+    
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 8px;
+    }}
+    
+    .stTabs [data-baseweb="tab"] {{
+        background-color: {COLORS['card']};
+        border-radius: 10px 10px 0 0;
+        padding: 12px 24px;
+        font-weight: 500;
+    }}
+    
+    .stTabs [aria-selected="true"] {{
+        background-color: {COLORS['accent_red']};
+        color: white;
+    }}
+    
+    /* Section Headers */
+    .section-header {{
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: {COLORS['text']};
+        margin: 1.5rem 0 1rem 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }}
+    
+    .section-header::before {{
+        content: '';
+        width: 4px;
+        height: 24px;
+        background: {COLORS['accent_red']};
+        border-radius: 2px;
+    }}
+    
+    /* Animations */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; }}
+        to {{ opacity: 1; }}
+    }}
+    
+    @keyframes slideInLeft {{
+        from {{ transform: translateX(-20px); opacity: 0; }}
+        to {{ transform: translateX(0); opacity: 1; }}
+    }}
+    
+    @keyframes fadeInUp {{
+        from {{ transform: translateY(20px); opacity: 0; }}
+        to {{ transform: translateY(0); opacity: 1; }}
+    }}
+    
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.5; }}
+    }}
+    
+    .loading-pulse {{
+        animation: pulse 2s infinite;
+    }}
+    
+    /* Hide default Streamlit elements */
+    #MainMenu {{ visibility: hidden; }}
+    footer {{ visibility: hidden; }}
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {{
+        width: 8px;
+    }}
+    
+    ::-webkit-scrollbar-track {{
+        background: {COLORS['bg']};
+    }}
+    
+    ::-webkit-scrollbar-thumb {{
+        background: {COLORS['grid']};
+        border-radius: 4px;
+    }}
+    
+    ::-webkit-scrollbar-thumb:hover {{
+        background: {COLORS['text_muted']};
+    }}
+    
+    /* Metrics spacing */
+    div[data-testid="stMetric"] {{
+        background: {COLORS['card']};
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid {COLORS['grid']};
+    }}
+    
+    /* Input styling */
+    .stSelectbox > div > div {{
+        background-color: {COLORS['card']};
+        border: 1px solid {COLORS['grid']};
+    }}
+    
+    /* Spacing utilities */
+    .spacer-md {{ height: 20px; }}
+    .spacer-lg {{ height: 40px; }}
+    
+    /* Chart container */
+    .chart-container {{
+        background: {COLORS['card']};
+        border-radius: 16px;
+        padding: 20px;
+        margin: 15px 0;
+        border: 1px solid {COLORS['grid']};
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -449,93 +623,130 @@ def render_strategy_simulator():
 
 
 def render_predictions_tab(df, model, config, threshold):
-    col1, col2, col3 = st.columns([2, 1, 1])
+    st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
-    with col1:
-        fig_pos = create_finishing_position_chart(df)
-        if fig_pos:
-            st.plotly_chart(fig_pos, use_container_width=True)
+    with st.container():
+        st.markdown('<div class="section-header">Race Overview</div>', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            fig_pos = create_finishing_position_chart(df)
+            if fig_pos:
+                st.plotly_chart(fig_pos, use_container_width=True)
+        
+        with col2:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.metric("Total Drivers", len(df['Driver'].unique()) if 'Driver' in df.columns else 0)
+            if 'Position' in df.columns:
+                st.metric("Race Laps", int(df['LapNumber'].max()) if 'LapNumber' in df.columns else 0)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            if 'PredictedPit' in df.columns:
+                st.metric("Predicted Pit Stops", int(df['PredictedPit'].sum()))
+            if 'PitInTime' in df.columns:
+                actual_pits = df['PitInTime'].notna().sum()
+                st.metric("Actual Pit Stops", int(actual_pits))
+            st.markdown('</div>', unsafe_allow_html=True)
     
-    with col2:
-        st.metric("Total Drivers", len(df['Driver'].unique()) if 'Driver' in df.columns else 0)
-        if 'Position' in df.columns:
-            st.metric("Race Laps", int(df['LapNumber'].max()) if 'LapNumber' in df.columns else 0)
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
-    with col3:
-        if 'PredictedPit' in df.columns:
-            st.metric("Predicted Pit Stops", int(df['PredictedPit'].sum()))
-        if 'PitInTime' in df.columns:
-            actual_pits = df['PitInTime'].notna().sum()
-            st.metric("Actual Pit Stops", int(actual_pits))
+    with st.container():
+        st.markdown('<div class="section-header">Position Timeline</div>', unsafe_allow_html=True)
+        fig_timeline = create_position_timeline(df)
+        if fig_timeline:
+            st.plotly_chart(fig_timeline, use_container_width=True)
     
-    st.markdown("---")
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
-    fig_timeline = create_position_timeline(df)
-    if fig_timeline:
-        st.plotly_chart(fig_timeline, use_container_width=True)
-    
-    st.markdown("---")
-    
-    fig_win = create_win_probability_chart(df)
-    if fig_win:
-        st.plotly_chart(fig_win, use_container_width=True)
+    with st.container():
+        st.markdown('<div class="section-header">Win Probability</div>', unsafe_allow_html=True)
+        fig_win = create_win_probability_chart(df)
+        if fig_win:
+            st.plotly_chart(fig_win, use_container_width=True)
 
 
 def render_explanation_tab(df, driver):
-    render_driver_explanation(df, driver)
+    st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
-    st.markdown("---")
-    st.markdown("### Driver Performance Details")
+    with st.container():
+        render_driver_explanation(df, driver)
     
-    driver_df = df[df['Driver'] == driver].copy()
-    if not driver_df.empty:
-        col1, col2, col3, col4 = st.columns(4)
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="section-header">Performance Metrics</div>', unsafe_allow_html=True)
         
-        with col1:
-            if 'Position' in driver_df.columns:
-                st.metric("Starting Position", int(driver_df['Position'].iloc[0]))
-                st.metric("Final Position", int(driver_df['Position'].iloc[-1]))
-        
-        with col2:
-            if 'LapTimeSeconds' in driver_df.columns:
-                st.metric("Avg Lap Time", f"{driver_df['LapTimeSeconds'].mean():.2f}s")
-                st.metric("Fastest Lap", f"{driver_df['LapTimeSeconds'].min():.2f}s")
-        
-        with col3:
-            if 'PredictedPit' in driver_df.columns:
-                st.metric("Predicted Stops", int(driver_df['PredictedPit'].sum()))
-            if 'PitInTime' in driver_df.columns:
-                actual = driver_df['PitInTime'].notna().sum()
-                st.metric("Actual Stops", int(actual))
-        
-        with col4:
-            if 'PitProbability' in driver_df.columns:
-                st.metric("Avg Pit Probability", f"{driver_df['PitProbability'].mean():.1%}")
-        
-        st.markdown("---")
+        driver_df = df[df['Driver'] == driver].copy()
+        if not driver_df.empty:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                if 'Position' in driver_df.columns:
+                    st.metric("Starting Position", int(driver_df['Position'].iloc[0]))
+                    st.metric("Final Position", int(driver_df['Position'].iloc[-1]))
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                if 'LapTimeSeconds' in driver_df.columns:
+                    st.metric("Avg Lap Time", f"{driver_df['LapTimeSeconds'].mean():.2f}s")
+                    st.metric("Fastest Lap", f"{driver_df['LapTimeSeconds'].min():.2f}s")
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                if 'PredictedPit' in driver_df.columns:
+                    st.metric("Predicted Stops", int(driver_df['PredictedPit'].sum()))
+                if 'PitInTime' in driver_df.columns:
+                    actual = driver_df['PitInTime'].notna().sum()
+                    st.metric("Actual Stops", int(actual))
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col4:
+                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+                if 'PitProbability' in driver_df.columns:
+                    st.metric("Avg Pit Probability", f"{driver_df['PitProbability'].mean():.1%}")
+                st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="section-header">Performance Charts</div>', unsafe_allow_html=True)
         
         col_chart1, col_chart2 = st.columns(2)
         
         with col_chart1:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             fig_lap = create_lap_time_chart(df, driver)
             if fig_lap:
                 st.plotly_chart(fig_lap, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with col_chart2:
+            st.markdown('<div class="chart-container">', unsafe_allow_html=True)
             fig_prob = create_pit_probability_chart(df, driver)
             if fig_prob:
                 st.plotly_chart(fig_prob, use_container_width=True)
-        
-        st.markdown("---")
-        
-        st.markdown("### Tyre Strategy Timeline")
+            st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="section-header">Tyre Strategy</div>', unsafe_allow_html=True)
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
         fig_strategy = create_strategy_timeline(df, driver)
         if fig_strategy:
             st.plotly_chart(fig_strategy, use_container_width=True)
-        
-        st.markdown("---")
-        
-        st.markdown("### Lap-by-Lap Data")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        st.markdown('<div class="section-header">Lap Data</div>', unsafe_allow_html=True)
         styled_df = create_styled_dataframe(driver_df[['LapNumber', 'Position', 'LapTimeSeconds', 
                                                         'Compound', 'TyreLife', 'PitProbability', 
                                                         'PredictedPit']])
@@ -544,28 +755,32 @@ def render_explanation_tab(df, driver):
 
 
 def main():
-    st.title("F1 Strategy Predictor")
-    st.markdown("### Machine Learning Race Predictions")
+    st.markdown('<div class="main-title">F1 Strategy Predictor</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Machine Learning Race Predictions & Analysis</div>', unsafe_allow_html=True)
     
-    st.markdown("---")
-    render_beginner_explanation()
-    st.markdown("---")
+    st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
+    
+    with st.container():
+        render_beginner_explanation()
+    
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
     model, config = get_trained_model()
     
     with st.sidebar:
-        st.header("Race Selection")
+        st.markdown('<div class="sidebar-header">Race Selection</div>', unsafe_allow_html=True)
         
-        year = st.selectbox("Year", [2023, 2022, 2021], index=0)
+        year = st.selectbox("Year", [2023, 2022, 2021], index=0, label_visibility="collapsed")
         
         races = get_available_races_cached(year)
-        gp = st.selectbox("Grand Prix", races[:15] if len(races) > 15 else races)
+        gp = st.selectbox("Grand Prix", races[:15] if len(races) > 15 else races, label_visibility="collapsed")
         
-        st.header("Prediction Settings")
+        st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-header">Prediction Settings</div>', unsafe_allow_html=True)
         threshold = st.slider("Pit Stop Sensitivity", 0.1, 0.9, 0.5, 0.05, 
                              help="Lower values predict more pit stops, higher values predict fewer")
         
-        st.header("Driver Selection")
+        st.markdown('<div class="spacer-md"></div></div>', unsafe_allow_html=True)
     
     try:
         with st.spinner("Loading race data..."):
