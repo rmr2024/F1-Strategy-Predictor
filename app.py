@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -748,23 +749,38 @@ def create_race_statistics(df):
     stats.columns = ['Driver', 'AvgLapTime', 'FastestLap', 'TotalLaps']
     stats = stats.sort_values('AvgLapTime').head(10)
     
-    fig = px.bar(
-        stats,
-        x='Driver',
-        y='AvgLapTime',
-        title="Average Lap Times",
-        color='AvgLapTime',
-        color_continuous_scale='RdYlGn_r'
-    )
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=stats['Driver'],
+        y=stats['AvgLapTime'],
+        marker=dict(
+            color=stats['AvgLapTime'],
+            colorscale=[
+                [0, COLORS['accent_green']],
+                [0.5, COLORS['accent_yellow']],
+                [1, COLORS['accent_red']]
+            ],
+            line=dict(color=COLORS['accent_red'], width=2)
+        ),
+        text=[f"{t:.2f}s" for t in stats['AvgLapTime']],
+        textposition='outside',
+        textfont=dict(color=COLORS['text'], size=11)
+    ))
     
     fig.update_layout(
         paper_bgcolor=COLORS['bg'],
         plot_bgcolor=COLORS['bg'],
-        font=dict(color=COLORS['text']),
-        xaxis=dict(title="Driver", gridcolor=COLORS['grid']),
-        yaxis=dict(title="Avg Lap Time (s)", gridcolor=COLORS['grid']),
+        font=dict(color=COLORS['text'], family="Inter, sans-serif"),
+        xaxis=dict(title="", gridcolor=COLORS['grid'], tickfont=dict(color=COLORS['text_muted'])),
+        yaxis=dict(title="Avg Lap Time (s)", gridcolor=COLORS['grid'], 
+                   tickfont=dict(color=COLORS['text_muted']),
+                   titlefont=dict(color=COLORS['text'])),
         showlegend=False,
-        height=350
+        height=350,
+        margin=dict(l=40, r=20, t=40, b=40),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)'
     )
     return fig
 
@@ -775,23 +791,27 @@ def create_tyre_distribution(df):
     
     tyre_counts = df['Compound'].value_counts()
     
-    colors = [get_tyre_color(c) for c in tyre_counts.index]
+    fig = go.Figure()
     
-    fig = px.pie(
+    fig.add_trace(go.Pie(
+        labels= tyre_counts.index,
         values= tyre_counts.values,
-        names= tyre_counts.index,
-        title="Tyre Compound Distribution",
-        color= tyre_counts.index,
-        color_discrete_map=TYRE_COLORS
-    )
+        hole=0.6,
+        marker=dict(colors=[get_tyre_color(c) for c in tyre_counts.index]),
+        textinfo='percent',
+        textfont=dict(color='white', size=12),
+        hoverinfo='label+value+percent'
+    ))
     
     fig.update_layout(
-        paper_bgcolor=COLORS['bg'],
-        plot_bgcolor=COLORS['bg'],
-        font=dict(color=COLORS['text']),
-        height=350
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color=COLORS['text'], family="Inter, sans-serif"),
+        height=350,
+        showlegend=False,
+        annotations=[dict(text='TYRES', x=0.5, y=0.5, font_size=14, 
+                        font_color=COLORS['text_muted'], showarrow=False)]
     )
-    fig.update_traces(textposition='inside', textinfo='percent+label')
     return fig
 
 
@@ -804,22 +824,207 @@ def create_driver_speed_heatmap(df):
     if pivot.empty or pivot.shape[0] == 0:
         return None
     
-    pivot = pivot.head(10).iloc[:, :min(30, pivot.shape[1])]
+    pivot = pivot.head(10).iloc[:, :min(25, pivot.shape[1])]
     
-    fig = px.imshow(
-        pivot,
-        labels=dict(x="Lap", y="Driver", color="Lap Time (s)"),
-        color_continuous_scale='RdYlGn_r',
-        aspect='auto'
-    )
+    fig = go.Figure()
+    
+    fig.add_trace(go.Heatmap(
+        z=pivot.values,
+        x=[f"Lap {i}" for i in pivot.columns],
+        y=pivot.index,
+        colorscale=[
+            [0, COLORS['accent_green']],
+            [0.5, COLORS['accent_yellow']],
+            [1, COLORS['accent_red']]
+        ],
+        showscale=True,
+        colorbar=dict(title="Time (s)", tickfont=dict(color=COLORS['text_muted']))
+    ))
     
     fig.update_layout(
-        paper_bgcolor=COLORS['bg'],
-        plot_bgcolor=COLORS['bg'],
-        font=dict(color=COLORS['text']),
-        height=350
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(color=COLORS['text'], family="Inter, sans-serif"),
+        xaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid']),
+        yaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid']),
+        height=350,
+        margin=dict(l=80, r=20, t=40, b=40)
     )
     return fig
+
+
+def create_3d_circuit():
+    html_code = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { margin: 0; overflow: hidden; background: #0E1117; }
+            canvas { display: block; }
+            #info {
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: #A0A0A0;
+                font-family: 'Inter', sans-serif;
+                font-size: 12px;
+                text-align: center;
+                pointer-events: none;
+            }
+        </style>
+    </head>
+    <body>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script>
+            var scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0E1117, 0.015);
+            
+            var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
+            document.body.appendChild(renderer.domElement);
+            
+            // Track curve points - F1 style circuit
+            var trackPoints = [];
+            var numPoints = 200;
+            for (var i = 0; i <= numPoints; i++) {
+                var t = (i / numPoints) * Math.PI * 2;
+                var x = Math.sin(t) * 8 + Math.sin(t * 3) * 2;
+                var z = Math.cos(t) * 8 + Math.cos(t * 2) * 3;
+                var y = Math.sin(t * 4) * 0.3;
+                trackPoints.push(new THREE.Vector3(x, y, z));
+            }
+            
+            var trackCurve = new THREE.CatmullRomCurve3(trackPoints);
+            
+            // Create glowing track
+            var trackGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.4, 8, false);
+            var trackMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xE10600,
+                transparent: true,
+                opacity: 0.9
+            });
+            var track = new THREE.Mesh(trackGeometry, trackMaterial);
+            scene.add(track);
+            
+            // Glow effect
+            var glowGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.8, 8, false);
+            var glowMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xFF3333,
+                transparent: true,
+                opacity: 0.3
+            });
+            var glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            scene.add(glow);
+            
+            // Calculate curvature and add markers
+            var curvature = [];
+            for (var i = 0; i < trackPoints.length - 2; i++) {
+                var p1 = trackPoints[i];
+                var p2 = trackPoints[i + 1];
+                var p3 = trackPoints[i + 2];
+                var c = p1.distanceTo(p2) + p2.distanceTo(p3);
+                curvature.push(c);
+            }
+            
+            var maxCurv = Math.max(...curvature);
+            var threshold = maxCurv * 0.7;
+            
+            // Add turn markers
+            var turnIndex = 0;
+            for (var i = 0; i < curvature.length; i++) {
+                if (curvature[i] > threshold) {
+                    var point = trackCurve.getPointAt(i / curvature.length);
+                    var markerGeom = new THREE.SphereGeometry(0.3, 16, 16);
+                    var markerMat = new THREE.MeshBasicMaterial({ color: 0xFFD700 });
+                    var marker = new THREE.Mesh(markerGeom, markerMat);
+                    marker.position.copy(point);
+                    marker.position.y += 0.5;
+                    scene.add(marker);
+                    
+                    // Turn label
+                    turnIndex++;
+                }
+            }
+            
+            // Start/Finish line
+            var startPoint = trackCurve.getPointAt(0);
+            var startGeom = new THREE.BoxGeometry(2, 0.1, 0.5);
+            var startMat = new THREE.MeshBasicMaterial({ color: 0x00D2BE });
+            var startLine = new THREE.Mesh(startGeom, startMat);
+            startLine.position.copy(startPoint);
+            scene.add(startLine);
+            
+            // Center point glow
+            var centerGeom = new THREE.SphereGeometry(0.5, 32, 32);
+            var centerMat = new THREE.MeshBasicMaterial({ 
+                color: 0x3671C6,
+                transparent: true,
+                opacity: 0.5
+            });
+            var center = new THREE.Mesh(centerGeom, centerMat);
+            center.position.set(0, -2, 0);
+            scene.add(center);
+            
+            // Ambient particles
+            var particleGeom = new THREE.BufferGeometry();
+            var particleCount = 500;
+            var positions = new Float32Array(particleCount * 3);
+            for (var i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 40;
+                positions[i + 1] = (Math.random() - 0.5) * 20;
+                positions[i + 2] = (Math.random() - 0.5) * 40;
+            }
+            particleGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            var particleMat = new THREE.PointsMaterial({ 
+                color: 0x3671C6, 
+                size: 0.1,
+                transparent: true,
+                opacity: 0.6
+            });
+            var particles = new THREE.Points(particleGeom, particleMat);
+            scene.add(particles);
+            
+            // Lights
+            var ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+            
+            camera.position.set(15, 10, 15);
+            camera.lookAt(0, 0, 0);
+            
+            var angle = 0;
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                angle += 0.003;
+                camera.position.x = 18 * Math.cos(angle);
+                camera.position.z = 18 * Math.sin(angle);
+                camera.lookAt(0, 0, 0);
+                
+                particles.rotation.y += 0.0005;
+                
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            
+            window.addEventListener('resize', function() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return html_code
+
+
+def render_3d_circuit():
+    components.html(create_3d_circuit(), height=400)
 
 
 def render_beginner_explanation():
@@ -964,23 +1169,22 @@ def render_predictions_tab(df, model, config, threshold):
     st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
     with st.container():
-        st.markdown('<div class="section-header">Race Overview</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">3D Circuit</div>', unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns([2, 1, 1])
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        render_3d_circuit()
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns([1, 1])
         
         with col1:
-            fig_circuit = create_circuit_visualization()
-            if fig_circuit:
-                st.plotly_chart(fig_circuit, use_container_width=True)
-        
-        with col2:
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.metric("Total Drivers", len(df['Driver'].unique()) if 'Driver' in df.columns else 0)
             if 'LapNumber' in df.columns:
                 st.metric("Race Laps", int(df['LapNumber'].max()))
             st.markdown('</div>', unsafe_allow_html=True)
         
-        with col3:
+        with col2:
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             if 'PredictedPit' in df.columns:
                 st.metric("Predicted Tyre Changes", int(df['PredictedPit'].sum()))
