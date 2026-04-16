@@ -434,7 +434,7 @@ def create_lap_time_chart(df, driver):
             x=actual_pits,
             y=driver_df[driver_df['LapNumber'].isin(actual_pits)]['LapTimeSeconds'],
             mode='markers',
-            name='Actual Pit Stop',
+            name='Actual Tyre Change',
             marker=dict(color=COLORS['accent_red'], size=12, symbol='x')
         ))
     
@@ -444,7 +444,7 @@ def create_lap_time_chart(df, driver):
             x=pred_pits,
             y=driver_df[driver_df['LapNumber'].isin(pred_pits)]['LapTimeSeconds'],
             mode='markers',
-            name='Predicted Pit Stop',
+            name='Predicted Tyre Change',
             marker=dict(color=COLORS['accent_green'], size=10, symbol='circle-open', 
                        line=dict(width=2))
         ))
@@ -473,7 +473,7 @@ def create_pit_probability_chart(df, driver):
         x=driver_df['LapNumber'],
         y=driver_df['PitProbability'],
         mode='lines',
-        name='Pit Stop Probability',
+        name='Tyre Change Probability',
         fill='tozeroy',
         line=dict(color=COLORS['accent_blue'], width=2),
         fillcolor="rgba(54, 113, 198, 0.2)"
@@ -565,7 +565,7 @@ def render_beginner_explanation():
         <h3 style="margin-top:0; color: #3671C6;">New to Formula 1?</h3>
         <ul style="margin-bottom: 0;">
             <li><strong>What is a race?</strong> - Drivers complete 50-70 laps around a track. The first to cross the finish line wins.</li>
-            <li><strong>What are pit stops?</strong> - When drivers come in for tyre changes. A good strategy can mean the difference between winning and losing.</li>
+            <li><strong>What are tyre changes?</strong> - When drivers come in for new tyres. A good strategy can mean the difference between winning and losing.</li>
             <li><strong>Why does strategy matter?</strong> - Different tyres have different characteristics. Soft tyres are fast but wear out quickly. Hard tyres last longer but are slower.</li>
             <li><strong>What is tyre compound?</strong> - Tyres come in Soft (red), Medium (yellow), and Hard (white). Teams choose when to change them based on race conditions.</li>
         </ul>
@@ -595,11 +595,11 @@ def render_driver_explanation(df, driver):
     if 'PitProbability' in driver_df.columns:
         avg_prob = driver_df['PitProbability'].mean()
         if avg_prob > 0.6:
-            st.markdown("<li><strong>Strategy:</strong> Likely to pit early due to tyre wear</li>")
+            st.markdown("<li><strong>Strategy:</strong> Likely to make a tyre change soon</li>")
         elif avg_prob < 0.3:
-            st.markdown("<li><strong>Strategy:</strong> Can extend tyre stint, fewer pit stops needed</li>")
+            st.markdown("<li><strong>Strategy:</strong> Can run longer before tyre change</li>")
         else:
-            st.markdown("<li><strong>Strategy:</strong> Balanced approach expected</li>")
+            st.markdown("<li><strong>Strategy:</strong> Tyre change timing is balanced</li>")
     
     st.markdown("</ul></div>", unsafe_allow_html=True)
 
@@ -614,7 +614,7 @@ def render_strategy_simulator():
         st.selectbox("Starting Tyre", ["Soft", "Medium", "Hard"], index=1)
     
     with col2:
-        st.selectbox("Pit Stop Strategy", ["One Stop", "Two Stop", "Undercut", "Overcut"])
+        st.selectbox("Tyre Change Strategy", ["One Stop", "Two Stop", "Undercut", "Overcut"])
     
     with col3:
         st.selectbox("Fuel Load", ["Full", "Light"])
@@ -645,10 +645,10 @@ def render_predictions_tab(df, model, config, threshold):
         with col3:
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             if 'PredictedPit' in df.columns:
-                st.metric("Predicted Pit Stops", int(df['PredictedPit'].sum()))
+                st.metric("Predicted Tyre Changes", int(df['PredictedPit'].sum()))
             if 'PitInTime' in df.columns:
                 actual_pits = df['PitInTime'].notna().sum()
-                st.metric("Actual Pit Stops", int(actual_pits))
+                st.metric("Actual Tyre Changes", int(actual_pits))
             st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
@@ -777,8 +777,8 @@ def main():
         
         st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sidebar-header">Prediction Settings</div>', unsafe_allow_html=True)
-        threshold = st.slider("Pit Stop Sensitivity", 0.1, 0.9, 0.5, 0.05, 
-                             help="Lower values predict more pit stops, higher values predict fewer")
+        threshold = st.slider("Tyre Change Sensitivity", 0.1, 0.9, 0.5, 0.05, 
+                             help="Lower values predict more tyre changes, higher values predict fewer")
         
         st.markdown('<div class="spacer-md"></div></div>', unsafe_allow_html=True)
     
