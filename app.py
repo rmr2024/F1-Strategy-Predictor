@@ -947,9 +947,12 @@ def create_3d_circuit(gp_name="Default", year=2023):
                 transform: translateX(-50%);
                 color: #00D2BE;
                 font-family: 'Inter', sans-serif;
-                font-size: 16px;
-                font-weight: 600;
+                font-size: 18px;
+                font-weight: 700;
                 z-index: 100;
+                background: rgba(14, 17, 23, 0.8);
+                padding: 8px 20px;
+                border-radius: 8px;
             }}
             #guide {{
                 position: absolute;
@@ -958,14 +961,14 @@ def create_3d_circuit(gp_name="Default", year=2023):
                 transform: translateX(-50%);
                 color: #A0A0A0;
                 font-family: 'Inter', sans-serif;
-                font-size: 11px;
+                font-size: 12px;
                 z-index: 100;
             }}
         </style>
     </head>
     <body>
         <div id="info">{gp_name} | {data_source}</div>
-        <div id="guide">Yellow = Corners | Green = Start/Finish | Drag to rotate</div>
+        <div id="guide">Yellow = Corners | Green = Start/Finish | Drag to rotate | Scroll to zoom</div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <script>
@@ -973,10 +976,10 @@ def create_3d_circuit(gp_name="Default", year=2023):
             
             var scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0E1117);
-            scene.fog = new THREE.Fog(0x0E1117, 30, 80);
+            scene.fog = new THREE.Fog(0x0E1117, 40, 100);
             
             var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 25, 30);
+            camera.position.set(0, 30, 40);
             
             var renderer = new THREE.WebGLRenderer({{ antialias: true }});
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -986,11 +989,12 @@ def create_3d_circuit(gp_name="Default", year=2023):
             var controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.minDistance = 10;
-            controls.maxDistance = 60;
+            controls.minDistance = 15;
+            controls.maxDistance = 80;
             controls.maxPolarAngle = Math.PI / 2.1;
+            controls.target.set(0, 0, 0);
             
-            // Find center
+            // Find center and scale
             var minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
             trackData.forEach(p => {{
                 minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
@@ -998,84 +1002,109 @@ def create_3d_circuit(gp_name="Default", year=2023):
             }});
             var centerX = (minX + maxX) / 2;
             var centerZ = (minZ + maxZ) / 2;
-            var scale = Math.max(maxX - minX, maxZ - minZ) / 20;
+            var scale = Math.max(maxX - minX, maxZ - minZ) / 25;
             if (scale < 1) scale = 1;
             
             // Normalize track
             trackData = trackData.map(p => [(p[0] - centerX) / scale, p[1], (p[2] - centerZ) / scale]);
             
-            // Ground plane
-            var gridHelper = new THREE.GridHelper(30, 30, 0x333333, 0x222222);
+            // Grid
+            var gridHelper = new THREE.GridHelper(40, 40, 0x333333, 0x222222);
             gridHelper.position.y = -0.1;
             scene.add(gridHelper);
             
-            // Track curve
-            var trackCurvePoints = trackData.map(p => new THREE.Vector3(p[0], 0.2, p[2]));
-            var trackCurve = new THREE.CatmullRomCurve3(trackCurvePoints, false, 'catmullrom', 0.5);
+            // CLOSED track curve - connected end to end
+            var trackCurvePoints = trackData.map(p => new THREE.Vector3(p[0], 0.3, p[2]));
+            var trackCurve = new THREE.CatmullRomCurve3(trackCurvePoints, true, 'catmullrom', 0.5);
             
-            // Main track tube
-            var trackGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.3, 8, false);
+            // Main track - thick tube
+            var trackGeometry = new THREE.TubeGeometry(trackCurve, 300, 0.5, 16, true);
             var trackMaterial = new THREE.MeshStandardMaterial({{ 
                 color: 0xE10600, 
-                emissive: 0x660000,
-                roughness: 0.4,
-                metalness: 0.3
+                emissive: 0x800000,
+                roughness: 0.3,
+                metalness: 0.5
             }});
             var track = new THREE.Mesh(trackGeometry, trackMaterial);
             scene.add(track);
             
-            // Track glow
-            var glowGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.5, 8, false);
+            // Outer glow ring
+            var glowGeometry = new THREE.TubeGeometry(trackCurve, 300, 0.8, 12, true);
             var glowMaterial = new THREE.MeshBasicMaterial({{ 
-                color: 0xFF3333, 
+                color: 0xFF4444, 
                 transparent: true, 
-                opacity: 0.2 
+                opacity: 0.15,
+                side: THREE.BackSide
             }});
             var glow = new THREE.Mesh(glowGeometry, glowMaterial);
             scene.add(glow);
             
             // Track surface
-            var surfaceGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.8, 8, false);
+            var surfaceGeometry = new THREE.TubeGeometry(trackCurve, 300, 1.5, 12, true);
             var surfaceMaterial = new THREE.MeshStandardMaterial({{ 
-                color: 0x222222, 
-                roughness: 0.9 
+                color: 0x1a1a1a, 
+                roughness: 0.9
             }});
             var surface = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
             surface.position.y = -0.05;
             scene.add(surface);
             
-            // Corner markers
-            for (var i = 0; i < trackData.length; i += Math.floor(trackData.length / 15)) {{
-                var p = trackData[i];
-                var markerGeom = new THREE.SphereGeometry(0.2, 16, 16);
-                var markerMat = new THREE.MeshStandardMaterial({{ 
-                    color: 0xFFD700, 
-                    emissive: 0xFFD700,
-                    emissiveIntensity: 0.5
-                }});
-                var marker = new THREE.Mesh(markerGeom, markerMat);
-                marker.position.set(p[0], 0.5, p[2]);
+            // Corner markers - more visible
+            var numCorners = Math.min(15, Math.floor(trackData.length / 8));
+            for (var i = 0; i < numCorners; i++) {{
+                var idx = Math.floor(i * trackData.length / numCorners);
+                var p = trackData[idx];
+                
+                // Glow sphere
+                var glowSphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.6, 16, 16),
+                    new THREE.MeshBasicMaterial({{ color: 0xFFD700, transparent: true, opacity: 0.3 }})
+                );
+                glowSphere.position.set(p[0], 0.8, p[2]);
+                scene.add(glowSphere);
+                
+                // Solid core
+                var marker = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.3, 16, 16),
+                    new THREE.MeshStandardMaterial({{ 
+                        color: 0xFFD700, 
+                        emissive: 0xFFD700,
+                        emissiveIntensity: 0.8
+                    }})
+                );
+                marker.position.set(p[0], 0.8, p[2]);
                 scene.add(marker);
             }}
             
-            // Start/Finish
-            var startGeom = new THREE.BoxGeometry(0.8, 0.1, 0.3);
+            // Start/Finish - larger and more visible
+            var startGeom = new THREE.BoxGeometry(1.5, 0.2, 0.4);
             var startMat = new THREE.MeshStandardMaterial({{ 
                 color: 0x00D2BE, 
                 emissive: 0x00D2BE,
-                emissiveIntensity: 0.5
+                emissiveIntensity: 1.0
             }});
             var startLine = new THREE.Mesh(startGeom, startMat);
-            startLine.position.set(trackData[0][0], 0.25, trackData[0][2]);
-            startLine.rotation.y = Math.atan2(trackData[1][0] - trackData[0][0], trackData[1][2] - trackData[0][2]);
+            var p0 = trackData[0];
+            var p1 = trackData[1] || trackData[trackData.length - 1];
+            startLine.position.set(p0[0], 0.4, p0[2]);
+            startLine.rotation.y = Math.atan2(p1[0] - p0[0], p1[2] - p0[2]);
             scene.add(startLine);
             
+            // Start glow
+            var startGlow = new THREE.Mesh(
+                new THREE.BoxGeometry(2, 0.4, 0.6),
+                new THREE.MeshBasicMaterial({{ color: 0x00D2BE, transparent: true, opacity: 0.3 }})
+            );
+            startGlow.position.set(p0[0], 0.4, p0[2]);
+            startGlow.rotation.y = startLine.rotation.y;
+            scene.add(startGlow);
+            
             // Center marker
-            var centerGeom = new THREE.CircleGeometry(1, 32);
+            var centerGeom = new THREE.CircleGeometry(1.5, 32);
             var centerMat = new THREE.MeshStandardMaterial({{ 
                 color: 0x3671C6, 
                 transparent: true, 
-                opacity: 0.3,
+                opacity: 0.4,
                 side: THREE.DoubleSide
             }});
             var center = new THREE.Mesh(centerGeom, centerMat);
@@ -1083,16 +1112,20 @@ def create_3d_circuit(gp_name="Default", year=2023):
             center.position.y = -0.05;
             scene.add(center);
             
-            // Lighting
-            var ambientLight = new THREE.AmbientLight(0x404040, 1);
+            // Lights
+            var ambientLight = new THREE.AmbientLight(0x404040, 1.5);
             scene.add(ambientLight);
             
-            var directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(10, 20, 10);
-            scene.add(directionalLight);
+            var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(20, 30, 20);
+            scene.add(dirLight);
             
-            var pointLight = new THREE.PointLight(0xE10600, 0.5, 50);
-            pointLight.position.set(0, 10, 0);
+            var dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+            dirLight2.position.set(-20, 20, -20);
+            scene.add(dirLight2);
+            
+            var pointLight = new THREE.PointLight(0xE10600, 0.6, 50);
+            pointLight.position.set(0, 8, 0);
             scene.add(pointLight);
             
             // Auto rotation
@@ -1101,10 +1134,10 @@ def create_3d_circuit(gp_name="Default", year=2023):
             function animate() {{
                 requestAnimationFrame(animate);
                 
-                if (autoRotate && !controls.enabled) {{
-                    var time = Date.now() * 0.0001;
-                    camera.position.x = Math.cos(time) * 25;
-                    camera.position.z = Math.sin(time) * 25;
+                if (autoRotate) {{
+                    var time = Date.now() * 0.00008;
+                    camera.position.x = Math.cos(time) * 35;
+                    camera.position.z = Math.sin(time) * 35;
                     camera.lookAt(0, 0, 0);
                 }}
                 
@@ -1112,7 +1145,6 @@ def create_3d_circuit(gp_name="Default", year=2023):
                 renderer.render(scene, camera);
             }}
             
-            // Disable auto-rotate on user interaction
             controls.addEventListener('start', function() {{ autoRotate = false; }});
             
             animate();
