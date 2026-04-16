@@ -851,169 +851,259 @@ def create_driver_speed_heatmap(df):
     return fig
 
 
-def create_3d_circuit():
-    html_code = """
+def get_track_geometry(gp_name):
+    """Get track geometry for each Grand Prix - coordinates and characteristics"""
+    
+    track_database = {
+        "Bahrain Grand Prix": {"turns": 15, "length": 5.412, "shape": "oval_complex"},
+        "Saudi Arabian Grand Prix": {"turns": 27, "length": 6.174, "shape": "street"},
+        "Australian Grand Prix": {"turns": 14, "length": 5.278, "shape": "permanent"},
+        "Japanese Grand Prix": {"turns": 18, "length": 5.807, "shape": "permanent"},
+        "Chinese Grand Prix": {"turns": 16, "length": 5.451, "shape": "permanent"},
+        "Miami Grand Prix": {"turns": 19, "length": 5.412, "shape": "street"},
+        "Monaco Grand Prix": {"turns": 19, "length": 3.337, "shape": "street"},
+        "Spanish Grand Prix": {"turns": 14, "length": 4.675, "shape": "permanent"},
+        "Canadian Grand Prix": {"turns": 14, "length": 4.410, "shape": "permanent"},
+        "Austrian Grand Prix": {"turns": 10, "length": 4.318, "shape": "permanent"},
+        "British Grand Prix": {"turns": 18, "length": 5.891, "shape": "permanent"},
+        "Hungarian Grand Prix": {"turns": 14, "length": 4.381, "shape": "permanent"},
+        "Belgian Grand Prix": {"turns": 19, "length": 7.004, "shape": "permanent"},
+        "Dutch Grand Prix": {"turns": 14, "length": 4.259, "shape": "permanent"},
+        "Italian Grand Prix": {"turns": 11, "length": 5.593, "shape": "permanent"},
+        "Singapore Grand Prix": {"turns": 19, "length": 4.940, "shape": "street"},
+        "Azerbaijan Grand Prix": {"turns": 20, "length": 6.003, "shape": "street"},
+        "Mexican Grand Prix": {"turns": 17, "length": 4.304, "shape": "permanent"},
+        "United States Grand Prix": {"turns": 20, "length": 5.513, "shape": "permanent"},
+        "Brazilian Grand Prix": {"turns": 15, "length": 4.309, "shape": "permanent"},
+        "Las Vegas Grand Prix": {"turns": 19, "length": 6.201, "shape": "street"},
+        "Qatar Grand Prix": {"turns": 16, "length": 5.380, "shape": "permanent"},
+        "Abu Dhabi Grand Prix": {"turns": 21, "length": 5.554, "shape": "permanent"},
+    }
+    
+    return track_database.get(gp_name, {"turns": 15, "length": 5.0, "shape": "permanent"})
+
+
+def create_track_points(track_info):
+    """Generate realistic track geometry based on track type"""
+    shape = track_info.get("shape", "permanent")
+    num_turns = track_info.get("turns", 15)
+    
+    if shape == "street":
+        num_points = 300
+    elif shape == "permanent":
+        num_points = 250
+    else:
+        num_points = 280
+    
+    points = []
+    for i in range(num_points):
+        t = (i / num_points) * 2 * np.pi
+        
+        if shape == "permanent":
+            x = np.sin(t) * 8 + np.sin(t * 2.5) * 1.5
+            z = np.cos(t) * 8 + np.cos(t * 1.5) * 2
+            y = np.sin(t * 4) * 0.2
+        elif shape == "street":
+            x = np.sin(t) * 7 + np.sin(t * 3) * 3
+            z = np.cos(t) * 7 + np.cos(t * 2) * 2.5
+            y = np.sin(t * 5) * 0.15
+        else:
+            x = np.sin(t) * 7.5 + np.sin(t * 2) * 2
+            z = np.cos(t) * 7.5 + np.cos(t * 2.5) * 1.5
+            y = np.sin(t * 3) * 0.25
+        
+        points.append((x, y, z))
+    
+    return points
+
+
+def create_3d_circuit(gp_name="Default"):
+    """Create 3D circuit visualization based on selected Grand Prix"""
+    
+    track_info = get_track_geometry(gp_name)
+    track_points = create_track_points(track_info)
+    
+    track_data_js = "[" + ",".join([f"[{x},{y},{z}]" for x, y, z in track_points]) + "]"
+    
+    html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body { margin: 0; overflow: hidden; background: #0E1117; }
-            canvas { display: block; }
-            #info {
+            body {{ margin: 0; overflow: hidden; background: #0E1117; }}
+            #info {{
                 position: absolute;
-                bottom: 20px;
+                top: 10px;
                 left: 50%;
                 transform: translateX(-50%);
-                color: #A0A0A0;
+                color: #00D2BE;
                 font-family: 'Inter', sans-serif;
-                font-size: 12px;
+                font-size: 18px;
+                font-weight: 600;
                 text-align: center;
-                pointer-events: none;
-            }
+                z-index: 100;
+                text-shadow: 0 0 20px rgba(0, 210, 190, 0.8);
+            }}
+            canvas {{ display: block; }}
         </style>
     </head>
     <body>
+        <div id="info">{gp_name}</div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script>
+            var trackData = {track_data_js};
+            
             var scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x0E1117, 0.015);
+            scene.fog = new THREE.FogExp2(0x0E1117, 0.012);
             
             var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            var renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: true }});
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setClearColor(0x000000, 0);
             document.body.appendChild(renderer.domElement);
             
-            // Track curve points - F1 style circuit
-            var trackPoints = [];
-            var numPoints = 200;
-            for (var i = 0; i <= numPoints; i++) {
-                var t = (i / numPoints) * Math.PI * 2;
-                var x = Math.sin(t) * 8 + Math.sin(t * 3) * 2;
-                var z = Math.cos(t) * 8 + Math.cos(t * 2) * 3;
-                var y = Math.sin(t * 4) * 0.3;
-                trackPoints.push(new THREE.Vector3(x, y, z));
-            }
+            // Create track curve
+            var trackCurvePoints = trackData.map(p => new THREE.Vector3(p[0], p[2], p[1]));
+            var trackCurve = new THREE.CatmullRomCurve3(trackCurvePoints);
             
-            var trackCurve = new THREE.CatmullRomCurve3(trackPoints);
-            
-            // Create glowing track
-            var trackGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.4, 8, false);
-            var trackMaterial = new THREE.MeshBasicMaterial({ 
+            // Main track - glowing red
+            var trackGeometry = new THREE.TubeGeometry(trackCurve, 300, 0.35, 12, false);
+            var trackMaterial = new THREE.MeshBasicMaterial({{ 
                 color: 0xE10600,
                 transparent: true,
-                opacity: 0.9
-            });
+                opacity: 0.95
+            }});
             var track = new THREE.Mesh(trackGeometry, trackMaterial);
             scene.add(track);
             
-            // Glow effect
-            var glowGeometry = new THREE.TubeGeometry(trackCurve, 200, 0.8, 8, false);
-            var glowMaterial = new THREE.MeshBasicMaterial({ 
+            // Outer glow
+            var glowGeometryOuter = new THREE.TubeGeometry(trackCurve, 300, 0.6, 8, false);
+            var glowMaterialOuter = new THREE.MeshBasicMaterial({{ 
                 color: 0xFF3333,
                 transparent: true,
-                opacity: 0.3
-            });
-            var glow = new THREE.Mesh(glowGeometry, glowMaterial);
-            scene.add(glow);
+                opacity: 0.25
+            }});
+            var glowOuter = new THREE.Mesh(glowGeometryOuter, glowMaterialOuter);
+            scene.add(glowOuter);
             
-            // Calculate curvature and add markers
-            var curvature = [];
-            for (var i = 0; i < trackPoints.length - 2; i++) {
-                var p1 = trackPoints[i];
-                var p2 = trackPoints[i + 1];
-                var p3 = trackPoints[i + 2];
+            // Calculate curvature for turn highlighting
+            var curvatures = [];
+            for (var i = 1; i < trackData.length - 1; i++) {{
+                var p1 = new THREE.Vector3(trackData[i-1][0], trackData[i-1][2], trackData[i-1][1]);
+                var p2 = new THREE.Vector3(trackData[i][0], trackData[i][2], trackData[i][1]);
+                var p3 = new THREE.Vector3(trackData[i+1][0], trackData[i+1][2], trackData[i+1][1]);
                 var c = p1.distanceTo(p2) + p2.distanceTo(p3);
-                curvature.push(c);
-            }
+                curvatures.push(c);
+            }}
             
-            var maxCurv = Math.max(...curvature);
-            var threshold = maxCurv * 0.7;
+            var maxCurv = Math.max(...curvatures);
+            var turnThreshold = maxCurv * 0.6;
+            var turnCount = 0;
             
-            // Add turn markers
-            var turnIndex = 0;
-            for (var i = 0; i < curvature.length; i++) {
-                if (curvature[i] > threshold) {
-                    var point = trackCurve.getPointAt(i / curvature.length);
-                    var markerGeom = new THREE.SphereGeometry(0.3, 16, 16);
-                    var markerMat = new THREE.MeshBasicMaterial({ color: 0xFFD700 });
+            for (var i = 5; i < curvatures.length - 5; i += 8) {{
+                if (curvatures[i] > turnThreshold) {{
+                    var point = trackCurve.getPointAt(i / curvatures.length);
+                    
+                    // Turn marker
+                    var markerGeom = new THREE.SphereGeometry(0.25, 16, 16);
+                    var markerMat = new THREE.MeshBasicMaterial({{ color: 0xFFD700 }});
                     var marker = new THREE.Mesh(markerGeom, markerMat);
-                    marker.position.copy(point);
-                    marker.position.y += 0.5;
+                    marker.position.set(point.x, point.z + 0.4, point.y);
                     scene.add(marker);
                     
-                    // Turn label
-                    turnIndex++;
-                }
-            }
+                    // Turn glow
+                    var glowGeom = new THREE.SphereGeometry(0.5, 16, 16);
+                    var glowMat = new THREE.MeshBasicMaterial({{ 
+                        color: 0xFFD700,
+                        transparent: true,
+                        opacity: 0.3
+                    }});
+                    var glowMarker = new THREE.Mesh(glowGeom, glowMat);
+                    glowMarker.position.set(point.x, point.z + 0.4, point.y);
+                    scene.add(glowMarker);
+                    
+                    turnCount++;
+                }}
+            }}
             
             // Start/Finish line
             var startPoint = trackCurve.getPointAt(0);
-            var startGeom = new THREE.BoxGeometry(2, 0.1, 0.5);
-            var startMat = new THREE.MeshBasicMaterial({ color: 0x00D2BE });
+            var startGeom = new THREE.BoxGeometry(1.5, 0.15, 0.3);
+            var startMat = new THREE.MeshBasicMaterial({{ color: 0x00D2BE }});
             var startLine = new THREE.Mesh(startGeom, startMat);
-            startLine.position.copy(startPoint);
+            startLine.position.set(startPoint.x, startPoint.z, startPoint.y);
+            startLine.rotation.z = 0.5;
             scene.add(startLine);
             
-            // Center point glow
-            var centerGeom = new THREE.SphereGeometry(0.5, 32, 32);
-            var centerMat = new THREE.MeshBasicMaterial({ 
+            // Start line glow
+            var startGlowGeom = new THREE.BoxGeometry(2, 0.3, 0.5);
+            var startGlowMat = new THREE.MeshBasicMaterial({{ 
+                color: 0x00D2BE,
+                transparent: true,
+                opacity: 0.3
+            }});
+            var startGlow = new THREE.Mesh(startGlowGeom, startGlowMat);
+            startGlow.position.set(startPoint.x, startPoint.z, startPoint.y);
+            startGlow.rotation.z = 0.5;
+            scene.add(startGlow);
+            
+            // Center indicator
+            var centerGeom = new THREE.RingGeometry(1, 1.5, 32);
+            var centerMat = new THREE.MeshBasicMaterial({{ 
                 color: 0x3671C6,
                 transparent: true,
-                opacity: 0.5
-            });
+                opacity: 0.4,
+                side: THREE.DoubleSide
+            }});
             var center = new THREE.Mesh(centerGeom, centerMat);
-            center.position.set(0, -2, 0);
+            center.rotation.x = -Math.PI / 2;
+            center.position.y = -2;
             scene.add(center);
             
             // Ambient particles
             var particleGeom = new THREE.BufferGeometry();
-            var particleCount = 500;
+            var particleCount = 600;
             var positions = new Float32Array(particleCount * 3);
-            for (var i = 0; i < particleCount * 3; i += 3) {
-                positions[i] = (Math.random() - 0.5) * 40;
-                positions[i + 1] = (Math.random() - 0.5) * 20;
-                positions[i + 2] = (Math.random() - 0.5) * 40;
-            }
+            for (var i = 0; i < particleCount * 3; i += 3) {{
+                positions[i] = (Math.random() - 0.5) * 50;
+                positions[i + 1] = (Math.random() - 0.5) * 25;
+                positions[i + 2] = (Math.random() - 0.5) * 50;
+            }}
             particleGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            var particleMat = new THREE.PointsMaterial({ 
+            var particleMat = new THREE.PointsMaterial({{ 
                 color: 0x3671C6, 
-                size: 0.1,
+                size: 0.08,
                 transparent: true,
-                opacity: 0.6
-            });
+                opacity: 0.5
+            }});
             var particles = new THREE.Points(particleGeom, particleMat);
             scene.add(particles);
             
-            // Lights
-            var ambientLight = new THREE.AmbientLight(0x404040, 2);
-            scene.add(ambientLight);
-            
-            camera.position.set(15, 10, 15);
+            camera.position.set(15, 12, 15);
             camera.lookAt(0, 0, 0);
             
             var angle = 0;
-            function animate() {
+            function animate() {{
                 requestAnimationFrame(animate);
                 
-                angle += 0.003;
-                camera.position.x = 18 * Math.cos(angle);
-                camera.position.z = 18 * Math.sin(angle);
+                angle += 0.0025;
+                camera.position.x = 20 * Math.cos(angle);
+                camera.position.z = 20 * Math.sin(angle);
                 camera.lookAt(0, 0, 0);
                 
-                particles.rotation.y += 0.0005;
+                particles.rotation.y += 0.0003;
                 
                 renderer.render(scene, camera);
-            }
+            }}
             
             animate();
             
-            window.addEventListener('resize', function() {
+            window.addEventListener('resize', function() {{
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
-            });
+            }});
         </script>
     </body>
     </html>
@@ -1021,8 +1111,8 @@ def create_3d_circuit():
     return html_code
 
 
-def render_3d_circuit():
-    components.html(create_3d_circuit(), height=400)
+def render_3d_circuit(gp_name):
+    components.html(create_3d_circuit(gp_name), height=400)
 
 
 def render_beginner_explanation():
@@ -1163,14 +1253,14 @@ def render_strategy_simulator():
         """, unsafe_allow_html=True)
 
 
-def render_predictions_tab(df, model, config, threshold):
+def render_predictions_tab(df, model, config, threshold, gp_name):
     st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
     with st.container():
         st.markdown('<div class="section-header">3D Circuit</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        render_3d_circuit()
+        render_3d_circuit(gp_name)
         st.markdown('</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns([1, 1])
@@ -1419,7 +1509,7 @@ def main():
         tab1, tab2, tab3 = st.tabs(["Predictions", "Explanation", "Strategy Simulator"])
         
         with tab1:
-            render_predictions_tab(df_pred, model, config, threshold)
+            render_predictions_tab(df_pred, model, config, threshold, gp)
         
         with tab2:
             render_explanation_tab(df_pred, selected_driver)
