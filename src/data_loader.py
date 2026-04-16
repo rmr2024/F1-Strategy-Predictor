@@ -108,14 +108,7 @@ def get_track_coordinates(year: int, gp: str) -> list:
         
         track_list = track.tolist()
         
-        x_min, x_max = min(t[0] for t in track_list), max(t[0] for t in track_list)
-        y_min, y_max = min(t[1] for t in track_list), max(t[1] for t in track_list)
-        
-        scale = max(x_max - x_min, y_max - y_min) / 15
-        
-        track_list = [[t[0]/scale, 0, t[1]/scale] for t in track_list]
-        
-        return track_list
+        return [[t[0], 0, t[1]] for t in track_list]
     except Exception as e:
         print(f"Error getting track coordinates: {e}")
         return []
