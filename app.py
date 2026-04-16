@@ -726,8 +726,8 @@ def create_circuit_visualization():
     ))
     
     fig.update_layout(
-        paper_bgcolor='transparent',
-        plot_bgcolor='transparent',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.3, 1.3]),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1.3, 1.3]),
         showlegend=False,
