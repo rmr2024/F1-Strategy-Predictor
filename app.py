@@ -578,28 +578,38 @@ def render_driver_explanation(df, driver):
     if driver_df.empty:
         return
     
-    final_pos = driver_df['Position'].iloc[-1] if 'Position' in driver_df.columns else None
+    final_pos = driver_df['Position'].iloc[-1] if 'Position' in driver_df.columns and not driver_df['Position'].isna().all() else None
     avg_time = driver_df['LapTimeSeconds'].mean() if 'LapTimeSeconds' in driver_df.columns else None
-    actual_pits = len(driver_df[driver_df['PitInTime'].notna()])
-    predicted_pits = driver_df['PredictedPit'].sum() if 'PredictedPit' in driver_df.columns else 0
+    
+    actual_pits = 0
+    if 'PitInTime' in driver_df.columns:
+        actual_pits = len(driver_df[driver_df['PitInTime'].notna()])
+    
+    predicted_pits = 0
+    if 'PredictedPit' in driver_df.columns:
+        predicted_pits = int(driver_df['PredictedPit'].sum())
+    
+    pos_text = f"{int(final_pos)}th place" if final_pos and not pd.isna(final_pos) else "N/A"
+    time_text = f"{avg_time:.2f}s per lap" if avg_time and not pd.isna(avg_time) else "N/A"
     
     st.markdown(f"""
     <div class="explanation-card">
         <h4 style="margin-top:0;">Why {driver}'s prediction?</h4>
         <ul>
-            <li><strong>Expected Finish:</strong> {int(final_pos) if final_pos else 'N/A'}th place</li>
-            <li><strong>Average Lap Time:</strong> {avg_time:.2f}s per lap</li>
-            <li><strong>Tyre Change Stops:</strong> {actual_pits} actual, {predicted_pits} predicted</li>
+            <li><strong>Expected Finish:</strong> {pos_text}</li>
+            <li><strong>Average Lap Time:</strong> {time_text}</li>
+            <li><strong>Tyre Changes:</strong> {actual_pits} actual, {predicted_pits} predicted</li>
     """, unsafe_allow_html=True)
     
     if 'PitProbability' in driver_df.columns:
         avg_prob = driver_df['PitProbability'].mean()
-        if avg_prob > 0.6:
-            st.markdown("<li><strong>Strategy:</strong> Likely to make a tyre change soon</li>")
-        elif avg_prob < 0.3:
-            st.markdown("<li><strong>Strategy:</strong> Can run longer before tyre change</li>")
-        else:
-            st.markdown("<li><strong>Strategy:</strong> Tyre change timing is balanced</li>")
+        if not pd.isna(avg_prob):
+            if avg_prob > 0.6:
+                st.markdown("<li><strong>Strategy:</strong> Likely to make a tyre change soon</li>")
+            elif avg_prob < 0.3:
+                st.markdown("<li><strong>Strategy:</strong> Can run longer before tyre change</li>")
+            else:
+                st.markdown("<li><strong>Strategy:</strong> Tyre change timing is balanced</li>")
     
     st.markdown("</ul></div>", unsafe_allow_html=True)
 
@@ -634,12 +644,14 @@ def render_predictions_tab(df, model, config, threshold):
             fig_pos = create_finishing_position_chart(df)
             if fig_pos:
                 st.plotly_chart(fig_pos, use_container_width=True)
+            else:
+                st.info("Position data not available for this race")
         
         with col2:
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.metric("Total Drivers", len(df['Driver'].unique()) if 'Driver' in df.columns else 0)
-            if 'Position' in df.columns:
-                st.metric("Race Laps", int(df['LapNumber'].max()) if 'LapNumber' in df.columns else 0)
+            if 'LapNumber' in df.columns:
+                st.metric("Race Laps", int(df['LapNumber'].max()))
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col3:
@@ -658,14 +670,18 @@ def render_predictions_tab(df, model, config, threshold):
         fig_timeline = create_position_timeline(df)
         if fig_timeline:
             st.plotly_chart(fig_timeline, use_container_width=True)
+        else:
+            st.info("Position timeline not available for this race")
     
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
     with st.container():
-        st.markdown('<div class="section-header">Win Probability</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Tyre Change Probability</div>', unsafe_allow_html=True)
         fig_win = create_win_probability_chart(df)
         if fig_win:
             st.plotly_chart(fig_win, use_container_width=True)
+        else:
+            st.info("Probability data not available")
 
 
 def render_explanation_tab(df, driver):
@@ -685,22 +701,31 @@ def render_explanation_tab(df, driver):
             
             with col1:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                if 'Position' in driver_df.columns:
-                    st.metric("Starting Position", int(driver_df['Position'].iloc[0]))
-                    st.metric("Final Position", int(driver_df['Position'].iloc[-1]))
+                if 'Position' in driver_df.columns and not driver_df['Position'].isna().all():
+                    start_pos = int(driver_df['Position'].iloc[0]) if not pd.isna(driver_df['Position'].iloc[0]) else None
+                    final_pos = int(driver_df['Position'].iloc[-1]) if not pd.isna(driver_df['Position'].iloc[-1]) else None
+                    if start_pos:
+                        st.metric("Starting Position", start_pos)
+                    if final_pos:
+                        st.metric("Final Position", final_pos)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             with col2:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                if 'LapTimeSeconds' in driver_df.columns:
-                    st.metric("Avg Lap Time", f"{driver_df['LapTimeSeconds'].mean():.2f}s")
-                    st.metric("Fastest Lap", f"{driver_df['LapTimeSeconds'].min():.2f}s")
+                if 'LapTimeSeconds' in driver_df.columns and not driver_df['LapTimeSeconds'].isna().all():
+                    avg_time = driver_df['LapTimeSeconds'].mean()
+                    min_time = driver_df['LapTimeSeconds'].min()
+                    if not pd.isna(avg_time):
+                        st.metric("Avg Lap Time", f"{avg_time:.2f}s")
+                    if not pd.isna(min_time):
+                        st.metric("Fastest Lap", f"{min_time:.2f}s")
                 st.markdown('</div>', unsafe_allow_html=True)
             
             with col3:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                 if 'PredictedPit' in driver_df.columns:
-                    st.metric("Predicted Stops", int(driver_df['PredictedPit'].sum()))
+                    pred_stops = int(driver_df['PredictedPit'].sum())
+                    st.metric("Predicted Stops", pred_stops)
                 if 'PitInTime' in driver_df.columns:
                     actual = driver_df['PitInTime'].notna().sum()
                     st.metric("Actual Stops", int(actual))
@@ -708,8 +733,10 @@ def render_explanation_tab(df, driver):
             
             with col4:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                if 'PitProbability' in driver_df.columns:
-                    st.metric("Avg Pit Probability", f"{driver_df['PitProbability'].mean():.1%}")
+                if 'PitProbability' in driver_df.columns and not driver_df['PitProbability'].isna().all():
+                    avg_prob = driver_df['PitProbability'].mean()
+                    if not pd.isna(avg_prob):
+                        st.metric("Avg Tyre Change Probability", f"{avg_prob:.1%}")
                 st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
@@ -747,11 +774,18 @@ def render_explanation_tab(df, driver):
     
     with st.container():
         st.markdown('<div class="section-header">Lap Data</div>', unsafe_allow_html=True)
-        styled_df = create_styled_dataframe(driver_df[['LapNumber', 'Position', 'LapTimeSeconds', 
-                                                        'Compound', 'TyreLife', 'PitProbability', 
-                                                        'PredictedPit']])
-        if styled_df is not None:
-            st.dataframe(styled_df, use_container_width=True)
+        
+        cols_to_show = []
+        for col in ['LapNumber', 'Position', 'LapTimeSeconds', 'Compound', 'TyreLife', 'PitProbability', 'PredictedPit']:
+            if col in driver_df.columns:
+                cols_to_show.append(col)
+        
+        if cols_to_show:
+            styled_df = create_styled_dataframe(driver_df[cols_to_show])
+            if styled_df is not None:
+                st.dataframe(styled_df, use_container_width=True)
+        else:
+            st.info("Lap data not available")
 
 
 def main():
