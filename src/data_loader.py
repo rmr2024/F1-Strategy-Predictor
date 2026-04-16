@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 import fastf1
 import tempfile
 
@@ -58,6 +59,66 @@ def load_race_data(year: int, gp: str, session_type: str = "R",
     df['GrandPrix'] = gp
 
     return df
+
+
+def get_circuit_info(year: int, gp: str) -> dict:
+    """Get circuit information including corners and rotation"""
+    try:
+        session = fastf1.get_session(year, gp, 'R')
+        session.load(telemetry=False, laps=False, weather=False)
+        circuit = session.get_circuit_info()
+        
+        return {
+            'corners': circuit.corners.to_dict('records') if circuit.corners is not None else [],
+            'rotation': circuit.rotation if circuit.rotation else 0,
+            'location': session.event['Location'],
+            'name': session.event['Name']
+        }
+    except Exception as e:
+        print(f"Error getting circuit info: {e}")
+        return {'corners': [], 'rotation': 0, 'location': '', 'name': gp}
+
+
+def get_track_coordinates(year: int, gp: str) -> list:
+    """Get actual track coordinates from fastest lap telemetry"""
+    try:
+        session = fastf1.get_session(year, gp, 'R')
+        session.load(telemetry=True, laps=True, weather=False)
+        
+        lap = session.laps.pick_fastest()
+        if lap is None:
+            return []
+        
+        pos = lap.get_pos_data()
+        if pos.empty or 'X' not in pos.columns or 'Y' not in pos.columns:
+            return []
+        
+        track = pos[['X', 'Y']].dropna().values
+        
+        circuit = session.get_circuit_info()
+        track_angle = circuit.rotation / 180 * np.pi if circuit.rotation else 0
+        
+        if track_angle != 0:
+            cos_a = np.cos(track_angle)
+            sin_a = np.sin(track_angle)
+            rotated = np.zeros_like(track)
+            rotated[:, 0] = track[:, 0] * cos_a - track[:, 1] * sin_a
+            rotated[:, 1] = track[:, 0] * sin_a + track[:, 1] * cos_a
+            track = rotated
+        
+        track_list = track.tolist()
+        
+        x_min, x_max = min(t[0] for t in track_list), max(t[0] for t in track_list)
+        y_min, y_max = min(t[1] for t in track_list), max(t[1] for t in track_list)
+        
+        scale = max(x_max - x_min, y_max - y_min) / 15
+        
+        track_list = [[t[0]/scale, 0, t[1]/scale] for t in track_list]
+        
+        return track_list
+    except Exception as e:
+        print(f"Error getting track coordinates: {e}")
+        return []
 
 
 def load_season_data(years: list = None, max_races_per_year: int = None) -> pd.DataFrame:
