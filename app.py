@@ -769,8 +769,6 @@ def create_race_statistics(df):
     ))
     
     fig.update_layout(
-        paper_bgcolor=COLORS['bg'],
-        plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text'], family="Inter, sans-serif"),
         xaxis=dict(title="", gridcolor=COLORS['grid'], tickfont=dict(color=COLORS['text_muted'])),
         yaxis=dict(title="Avg Lap Time (s)", gridcolor=COLORS['grid'], 
