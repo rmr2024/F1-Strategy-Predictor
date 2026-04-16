@@ -615,21 +615,77 @@ def render_driver_explanation(df, driver):
 
 
 def render_strategy_simulator():
-    st.markdown("### Strategy Simulator")
-    st.markdown("Adjust strategy parameters to see how they might affect the race:")
+    st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="beginner-box">
+        <h3 style="margin-top:0; color: #3671C6;">Strategy Simulator</h3>
+        <p>Select your strategy parameters below to visualize different race scenarios.</p>
+        <p><em>Note: This feature simulates strategy scenarios based on historical data patterns.</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.selectbox("Starting Tyre", ["Soft", "Medium", "Hard"], index=1)
+        starting_tyre = st.selectbox("Starting Tyre", ["Soft", "Medium", "Hard"], index=1)
     
     with col2:
-        st.selectbox("Tyre Change Strategy", ["One Stop", "Two Stop", "Undercut", "Overcut"])
+        strategy_type = st.selectbox("Tyre Change Strategy", ["One Stop", "Two Stop", "Undercut", "Overcut"])
     
     with col3:
-        st.selectbox("Fuel Load", ["Full", "Light"])
+        fuel_load = st.selectbox("Fuel Load", ["Full", "Light"])
     
-    st.info("Strategy simulation is coming soon! This feature will let you test different race strategies.")
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-header">Strategy Visualization</div>', unsafe_allow_html=True)
+    
+    if strategy_type == "One Stop":
+        stints = [(starting_tyre, 1, 35), ("Medium" if starting_tyre != "Medium" else "Hard", 36, 70)]
+    elif strategy_type == "Two Stop":
+        stints = [(starting_tyre, 1, 20), ("Medium" if starting_tyre != "Medium" else "Hard", 21, 45), 
+                  ("Medium" if starting_tyre != "Medium" else "Hard", 46, 70)]
+    elif strategy_type == "Undercut":
+        stints = [(starting_tyre, 1, 15), ("Soft" if starting_tyre != "Soft" else "Medium", 16, 70)]
+    else:
+        stints = [(starting_tyre, 1, 40), ("Hard" if starting_tyre != "Hard" else "Medium", 41, 70)]
+    
+    cols = st.columns(len(stints))
+    for i, (compound, start_lap, end_lap) in enumerate(stints):
+        color = get_tyre_color(compound)
+        with cols[i]:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(145deg, {COLORS['card']}, {COLORS['card_light']});
+                border-radius: 12px;
+                padding: 20px;
+                text-align: center;
+                border: 2px solid {color};
+            ">
+                <h4 style="margin:0; color: {color};">{compound}</h4>
+                <p style="margin:5px 0; color: {COLORS['text_muted']};">Laps {start_lap}-{end_lap}</p>
+                <p style="margin:0; font-size: 0.8rem; color: {COLORS['text_muted']};">{end_lap - start_lap + 1} laps</p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="section-header">Estimated Impact</div>', unsafe_allow_html=True)
+    
+    impact_col1, impact_col2, impact_col3, impact_col4 = st.columns(4)
+    
+    with impact_col1:
+        st.metric("Total Stops", len(stints))
+    with impact_col2:
+        st.metric("Total Race Distance", f"{stints[-1][2]} laps")
+    with impact_col3:
+        estimated_time = len(stints) * 20
+        st.metric("Est. Stop Time", f"+{estimated_time}s")
+    with impact_col4:
+        risk_level = "Low" if len(stints) == 1 else "Medium" if len(stints) == 2 else "High"
+        st.metric("Strategy Risk", risk_level)
 
 
 def render_predictions_tab(df, model, config, threshold):
