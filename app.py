@@ -59,6 +59,7 @@ def load_training_data_cached():
     return load_season_data(years=[2022], max_races_per_year=2)
 
 
+@st.cache_resource(show_spinner="Training pit stop prediction model...")
 def get_trained_model():
     try:
         training_df = load_training_data_cached()
