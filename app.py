@@ -1135,6 +1135,14 @@ def render_explanation_tab(df, driver):
             st.info("Lap data not available")
 
 
+if 'update_trigger' not in st.session_state:
+    st.session_state.update_trigger = 0
+
+
+def trigger_update():
+    st.session_state.update_trigger += 1
+
+
 def main():
     st.markdown("""
     <div style="text-align: center; padding: 20px 0;">
@@ -1162,18 +1170,27 @@ def main():
         
         st.markdown('<div class="sidebar-header">Race Selection</div>', unsafe_allow_html=True)
         
-        year = st.selectbox("Year", [2023, 2022, 2021], index=0, label_visibility="collapsed")
+        year = st.selectbox("Year", [2023, 2022, 2021], index=0, label_visibility="collapsed", key="year_select")
         
         races = get_available_races_cached(year)
-        gp = st.selectbox("Grand Prix", races[:15] if len(races) > 15 else races, label_visibility="collapsed")
+        gp = st.selectbox("Grand Prix", races[:15] if len(races) > 15 else races, label_visibility="collapsed", key="gp_select")
         
         st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
         st.markdown('<div class="sidebar-header">Prediction Settings</div>', unsafe_allow_html=True)
         threshold = st.slider("Tyre Change Sensitivity", 0.1, 0.9, 0.5, 0.05, 
-                             help="Lower values predict more tyre changes, higher values predict fewer")
+                             help="Lower values predict more tyre changes, higher values predict fewer", key="threshold_slider")
         
         st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
-        st.markdown('<div class="sidebar-header">Driver Selection</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-header">Update</div>', unsafe_allow_html=True)
+        
+        if st.button("Update Predictions", use_container_width=True, on_click=trigger_update):
+            pass
+        
+        st.markdown(f"""
+        <p style="color: #A0A0A0; font-size: 0.8rem; text-align: center; margin-top: 10px;">
+            Click to refresh predictions when you change any parameter.
+        </p>
+        """, unsafe_allow_html=True)
     
     try:
         with st.spinner("Loading race data..."):
@@ -1184,7 +1201,14 @@ def main():
             return
         
         drivers = sorted(df['Driver'].unique())
-        selected_driver = st.selectbox("Select a driver to analyze:", drivers, index=0)
+        
+        col_driver, col_btn = st.columns([3, 1])
+        with col_driver:
+            selected_driver = st.selectbox("Select a driver to analyze:", drivers, index=0, key="driver_select")
+        with col_btn:
+            st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+            if st.button("Run", use_container_width=True, on_click=trigger_update):
+                pass
         
         df_pred = get_model_predictions(df, threshold, model, config)
         
