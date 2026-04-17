@@ -1204,7 +1204,6 @@ def create_3d_circuit(gp_name="Default", year=2023, svg_track_path=None):
             import {{ OutputPass }} from 'three/addons/postprocessing/OutputPass.js';
             
             const trackData = {track_data_js};
-            const svgUrl = {f"'{svg_url}'" if svg_url else "null"};
             
             let scene, camera, renderer, controls, composer;
             let trackCurve, carMarker, carLight, trailParticles;
@@ -1319,27 +1318,8 @@ def create_3d_circuit(gp_name="Default", year=2023, svg_track_path=None):
                         lastInteraction = Date.now();
                     }});
                     
-                    // Load track data
-                    let curvePoints;
-                    
-                    if (svgUrl) {{
-                        try {{
-                            const svgPoints = await loadSvgTrack(svgUrl);
-                            if (svgPoints && svgPoints.length > 10) {{
-                                curvePoints = svgPoints;
-                                document.getElementById('data-source').textContent = 'SVG Track Map';
-                            }} else {{
-                                throw new Error('Insufficient points');
-                            }}
-                        }} catch (e) {{
-                            console.warn('SVG load failed:', e);
-                            curvePoints = getNormalizedTrackPoints(trackData);
-                        }}
-                    }} else {{
-                        curvePoints = getNormalizedTrackPoints(trackData);
-                    }}
-                    
-                    // Create track curve from points
+                    // Normalize and create track curve
+                    const curvePoints = getNormalizedTrackPoints(trackData);
                     trackCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'catmullrom', 0.5);
                     
                     createEnvironment();
