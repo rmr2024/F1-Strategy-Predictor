@@ -421,6 +421,45 @@ def get_tyre_color(compound):
     return TYRE_COLORS.get(str(compound).upper(), '#FFFFFF')
 
 
+def create_styled_dataframe(df):
+    if df is None or df.empty:
+        return None
+    
+    def style_cell(val):
+        if isinstance(val, (int, float)):
+            if not pd.isna(val):
+                return f'color: {COLORS["text"]}; background-color: {COLORS["card"]}'
+        return f'color: {COLORS["text"]}; background-color: {COLORS["card"]}'
+    
+    try:
+        styled = df.style.applymap(style_cell)
+        styled = styled.set_properties(**{
+            'background-color': COLORS['card'],
+            'color': COLORS['text'],
+            'border-color': COLORS['grid'],
+            'border-style': 'solid',
+            'border-width': '1px',
+            'padding': '8px',
+            'text-align': 'center',
+            'font-family': 'Inter, sans-serif',
+        })
+        styled = styled.set_table_styles([
+            {'selector': 'th', 'props': [
+                ('background-color', COLORS['card_light']),
+                ('color', COLORS['text']),
+                ('font-weight', '600'),
+                ('padding', '10px'),
+                ('border-bottom', f'2px solid {COLORS["accent_blue"]}'),
+            ]},
+            {'selector': 'td:hover', 'props': [
+                ('background-color', COLORS['card_hover']),
+            ]},
+        ])
+        return styled
+    except Exception as e:
+        return None
+
+
 def create_finishing_position_chart(df):
     if 'Position' not in df.columns:
         return None
