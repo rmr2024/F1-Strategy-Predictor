@@ -1833,30 +1833,23 @@ def render_strategy_simulator():
 def render_predictions_tab(df, model, config, threshold, gp_name, year):
     st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
     
-    with st.container():
-        st.markdown('<div class="section-header">3D Circuit</div>', unsafe_allow_html=True)
-        
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        render_3d_circuit(gp_name, year)
+    col1, col2 = st.columns([1, 1])
+    
+    with col1:
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        st.metric("Total Drivers", len(df['Driver'].unique()) if 'Driver' in df.columns else 0)
+        if 'LapNumber' in df.columns:
+            st.metric("Race Laps", int(df['LapNumber'].max()))
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns([1, 1])
-        
-        with col1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Total Drivers", len(df['Driver'].unique()) if 'Driver' in df.columns else 0)
-            if 'LapNumber' in df.columns:
-                st.metric("Race Laps", int(df['LapNumber'].max()))
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            if 'PredictedPit' in df.columns:
-                st.metric("Predicted Tyre Changes", int(df['PredictedPit'].sum()))
-            if 'PitInTime' in df.columns:
-                actual_pits = df['PitInTime'].notna().sum()
-                st.metric("Actual Tyre Changes", int(actual_pits))
-            st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+        if 'PredictedPit' in df.columns:
+            st.metric("Predicted Tyre Changes", int(df['PredictedPit'].sum()))
+        if 'PitInTime' in df.columns:
+            actual_pits = df['PitInTime'].notna().sum()
+            st.metric("Actual Tyre Changes", int(actual_pits))
+        st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="spacer-lg"></div>', unsafe_allow_html=True)
     
