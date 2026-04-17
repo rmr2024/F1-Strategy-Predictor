@@ -447,8 +447,8 @@ def create_finishing_position_chart(df):
         paper_bgcolor=COLORS['bg'],
         plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text']),
-        xaxis=dict(title="Driver", gridcolor=COLORS['grid']),
-        yaxis=dict(title="Position", gridcolor=COLORS['grid'], range=[20, 1]),
+        xaxis=dict(title="Driver", gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_blue'], spikethickness=2, spikemode="across"),
+        yaxis=dict(title="Position", gridcolor=COLORS['grid'], range=[20, 1], showspikes=True, spikecolor=COLORS['accent_blue'], spikethickness=2, spikemode="across"),
         showlegend=False,
         height=400
     )
@@ -478,9 +478,9 @@ def create_position_timeline(df):
         paper_bgcolor=COLORS['bg'],
         plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text']),
-        xaxis=dict(title="Lap Number", gridcolor=COLORS['grid']),
+        xaxis=dict(title="Lap Number", gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1, spikemode="toaxis"),
         yaxis=dict(title="Position", gridcolor=COLORS['grid'], range=[20, 1], 
-                   autorange=False),
+                   autorange=False, showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1, spikemode="toaxis"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         height=400,
         title="Position Changes Over Race"
@@ -515,9 +515,9 @@ def create_win_probability_chart(df):
         paper_bgcolor=COLORS['bg'],
         plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text']),
-        xaxis=dict(title="Driver", gridcolor=COLORS['grid']),
+        xaxis=dict(title="Driver", gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_yellow'], spikethickness=1),
         yaxis=dict(title="Win Probability", gridcolor=COLORS['grid'], 
-                   range=[0, 1], tickformat=".0%"),
+                   range=[0, 1], tickformat=".0%", showspikes=True, spikecolor=COLORS['accent_yellow'], spikethickness=1),
         showlegend=False,
         height=350
     )
@@ -567,8 +567,8 @@ def create_lap_time_chart(df, driver):
         paper_bgcolor=COLORS['bg'],
         plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text'], family="Roboto, sans-serif"),
-        xaxis=dict(title="Lap Number", gridcolor=COLORS['grid'], showgrid=True),
-        yaxis=dict(title="Lap Time (seconds)", gridcolor=COLORS['grid'], showgrid=True),
+        xaxis=dict(title="Lap Number", gridcolor=COLORS['grid'], showgrid=True, showspikes=True, spikecolor=COLORS['accent_red'], spikethickness=1, spikemode="toaxis"),
+        yaxis=dict(title="Lap Time (seconds)", gridcolor=COLORS['grid'], showgrid=True, showspikes=True, spikecolor=COLORS['accent_red'], spikethickness=1, spikemode="toaxis"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(l=40, r=40, t=40, b=40),
         height=400
@@ -598,8 +598,8 @@ def create_pit_probability_chart(df, driver):
         paper_bgcolor=COLORS['bg'],
         plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text']),
-        xaxis=dict(title="Lap Number", gridcolor=COLORS['grid']),
-        yaxis=dict(title="Probability", range=[0, 1], gridcolor=COLORS['grid']),
+        xaxis=dict(title="Lap Number", gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_blue'], spikethickness=1),
+        yaxis=dict(title="Probability", range=[0, 1], gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_blue'], spikethickness=1),
         margin=dict(l=40, r=40, t=20, b=40),
         height=250
     )
@@ -770,10 +770,11 @@ def create_race_statistics(df):
     
     fig.update_layout(
         font=dict(color=COLORS['text'], family="Inter, sans-serif"),
-        xaxis=dict(title="", gridcolor=COLORS['grid'], tickfont=dict(color=COLORS['text_muted'])),
+        xaxis=dict(title="", gridcolor=COLORS['grid'], tickfont=dict(color=COLORS['text_muted']), showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1),
         yaxis=dict(title="Avg Lap Time (s)", gridcolor=COLORS['grid'], 
                    tickfont=dict(color=COLORS['text_muted']),
-                   titlefont=dict(color=COLORS['text'])),
+                   titlefont=dict(color=COLORS['text']),
+                   showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1),
         showlegend=False,
         height=350,
         margin=dict(l=40, r=20, t=40, b=40),
@@ -843,8 +844,8 @@ def create_driver_speed_heatmap(df):
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font=dict(color=COLORS['text'], family="Inter, sans-serif"),
-        xaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid']),
-        yaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid']),
+        xaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_red'], spikethickness=1),
+        yaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_red'], spikethickness=1),
         height=350,
         margin=dict(l=80, r=20, t=40, b=40)
     )
