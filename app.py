@@ -957,7 +957,7 @@ def create_track_points(track_info):
 
 
 def create_3d_circuit(gp_name="Default", year=2023):
-    """Create 3D circuit visualization based on selected Grand Prix using real data"""
+    """Create broadcast-quality 3D circuit visualization"""
     
     track_coords = []
     data_source = "No data"
@@ -965,7 +965,7 @@ def create_3d_circuit(gp_name="Default", year=2023):
     try:
         track_coords = get_track_coordinates(year, gp_name)
         if track_coords and len(track_coords) >= 10:
-            data_source = f"FastF1 Telemetry ({len(track_coords)} points)"
+            data_source = f"FastF1 Telemetry ({len(track_coords)} pts)"
         else:
             raise ValueError("Insufficient track points")
     except Exception as e:
@@ -975,232 +975,575 @@ def create_3d_circuit(gp_name="Default", year=2023):
     if not track_coords or len(track_coords) < 10:
         track_info = get_track_geometry(gp_name)
         track_coords = create_track_points(track_info)
-        data_source = "Simulated (Real data unavailable)"
+        data_source = "Simulated Track Data"
     
-    print(f"DEBUG: {gp_name} ({year}) - Using {len(track_coords)} points - {data_source}")
-    
-    track_data_js = "[" + ",".join([f"[{float(x):.2f},{float(y):.2f},{float(z):.2f}]" for x, y, z in track_coords[:150]]) + "]"
+    track_data_js = "[" + ",".join([f"[{float(x):.2f},{float(y):.2f},{float(z):.2f}]" for x, y, z in track_coords[:200]]) + "]"
     
     html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body {{ margin: 0; overflow: hidden; background: #0E1117; }}
-            #info {{
-                position: absolute;
-                top: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                color: #00D2BE;
-                font-family: 'Inter', sans-serif;
-                font-size: 18px;
-                font-weight: 700;
-                z-index: 100;
-                background: rgba(14, 17, 23, 0.8);
-                padding: 8px 20px;
-                border-radius: 8px;
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ 
+                margin: 0; 
+                overflow: hidden; 
+                background: linear-gradient(135deg, #0a0a12 0%, #0d1117 50%, #0a0a12 100%);
+                font-family: 'Inter', -apple-system, sans-serif;
             }}
-            #guide {{
+            #canvas-container {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }}
+            #overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 10;
+            }}
+            #title-bar {{
                 position: absolute;
-                bottom: 10px;
+                top: 20px;
                 left: 50%;
                 transform: translateX(-50%);
-                color: #A0A0A0;
-                font-family: 'Inter', sans-serif;
-                font-size: 12px;
+                text-align: center;
+                pointer-events: none;
+            }}
+            #event-title {{
+                font-size: 14px;
+                font-weight: 500;
+                color: #00D2BE;
+                letter-spacing: 4px;
+                text-transform: uppercase;
+                margin-bottom: 4px;
+                text-shadow: 0 0 20px rgba(0, 210, 190, 0.6);
+            }}
+            #gp-name {{
+                font-size: 28px;
+                font-weight: 700;
+                color: #ffffff;
+                letter-spacing: 2px;
+                text-shadow: 0 0 30px rgba(0, 210, 190, 0.4), 0 2px 10px rgba(0,0,0,0.8);
+            }}
+            #data-source {{
+                font-size: 10px;
+                color: #6b7280;
+                margin-top: 6px;
+                letter-spacing: 1px;
+            }}
+            #controls-hint {{
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                gap: 24px;
+                pointer-events: none;
+            }}
+            .hint-item {{
+                font-size: 11px;
+                color: #6b7280;
+                letter-spacing: 1px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }}
+            .hint-key {{
+                background: rgba(255,255,255,0.1);
+                padding: 4px 8px;
+                border-radius: 4px;
+                border: 1px solid rgba(255,255,255,0.15);
+                font-size: 10px;
+                color: #9ca3af;
+            }}
+            #telemetry-panel {{
+                position: absolute;
+                bottom: 60px;
+                left: 20px;
+                background: rgba(10, 10, 18, 0.85);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(0, 210, 190, 0.2);
+                border-radius: 12px;
+                padding: 16px 20px;
+                min-width: 200px;
+                pointer-events: none;
+            }}
+            .telem-row {{
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                align-items: center;
+            }}
+            .telem-row:last-child {{ margin-bottom: 0; }}
+            .telem-label {{
+                font-size: 10px;
+                color: #6b7280;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            }}
+            .telem-value {{
+                font-size: 16px;
+                font-weight: 600;
+                color: #00D2BE;
+                text-shadow: 0 0 10px rgba(0, 210, 190, 0.5);
+            }}
+            .telem-unit {{
+                font-size: 10px;
+                color: #6b7280;
+                margin-left: 4px;
+            }}
+            #loading {{
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #00D2BE;
+                font-size: 14px;
+                letter-spacing: 3px;
                 z-index: 100;
             }}
         </style>
     </head>
     <body>
-        <div id="info">{gp_name} | {data_source}</div>
-        <div id="guide">Yellow = Corners | Green = Start/Finish | Drag to rotate | Scroll to zoom</div>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-        <script>
-            var trackData = {track_data_js};
+        <div id="loading">INITIALIZING TELEMETRY...</div>
+        <div id="canvas-container"></div>
+        <div id="overlay">
+            <div id="title-bar">
+                <div id="event-title">Pre-Season Testing 2024</div>
+                <div id="gp-name">{gp_name}</div>
+                <div id="data-source">{data_source}</div>
+            </div>
+            <div id="telemetry-panel">
+                <div class="telem-row">
+                    <span class="telem-label">Speed</span>
+                    <span><span class="telem-value" id="speed-val">287</span><span class="telem-unit">KM/H</span></span>
+                </div>
+                <div class="telem-row">
+                    <span class="telem-label">Throttle</span>
+                    <span><span class="telem-value" id="throttle-val">95</span><span class="telem-unit">%</span></span>
+                </div>
+                <div class="telem-row">
+                    <span class="telem-label">Lap</span>
+                    <span><span class="telem-value" id="lap-val">1</span><span class="telem-unit">/ 72</span></span>
+                </div>
+            </div>
+            <div id="controls-hint">
+                <div class="hint-item"><span class="hint-key">DRAG</span> Rotate</div>
+                <div class="hint-item"><span class="hint-key">SCROLL</span> Zoom</div>
+                <div class="hint-item"><span class="hint-key">RIGHT DRAG</span> Pan</div>
+            </div>
+        </div>
+        
+        <script type="importmap">
+        {{
+            "imports": {{
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }}
+        }}
+        </script>
+        
+        <script type="module">
+            import * as THREE from 'three';
+            import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
+            import {{ EffectComposer }} from 'three/addons/postprocessing/EffectComposer.js';
+            import {{ RenderPass }} from 'three/addons/postprocessing/RenderPass.js';
+            import {{ UnrealBloomPass }} from 'three/addons/postprocessing/UnrealBloomPass.js';
+            import {{ OutputPass }} from 'three/addons/postprocessing/OutputPass.js';
             
-            var scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0E1117);
-            scene.fog = new THREE.Fog(0x0E1117, 40, 100);
+            const trackData = {track_data_js};
             
-            var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 30, 40);
+            let scene, camera, renderer, controls, composer;
+            let trackCurve, carMarker, carLight, trailParticles;
+            let clock = new THREE.Clock();
+            let autoRotate = true;
+            let lastInteraction = 0;
+            let carProgress = 0;
             
-            var renderer = new THREE.WebGLRenderer({{ antialias: true }});
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.body.appendChild(renderer.domElement);
-            
-            var controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.minDistance = 15;
-            controls.maxDistance = 80;
-            controls.maxPolarAngle = Math.PI / 2.1;
-            controls.target.set(0, 0, 0);
-            
-            // Find center and scale
-            var minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-            trackData.forEach(p => {{
-                minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
-                minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
-            }});
-            var centerX = (minX + maxX) / 2;
-            var centerZ = (minZ + maxZ) / 2;
-            var scale = Math.max(maxX - minX, maxZ - minZ) / 25;
-            if (scale < 1) scale = 1;
-            
-            // Normalize track
-            trackData = trackData.map(p => [(p[0] - centerX) / scale, p[1], (p[2] - centerZ) / scale]);
-            
-            // Grid
-            var gridHelper = new THREE.GridHelper(40, 40, 0x333333, 0x222222);
-            gridHelper.position.y = -0.1;
-            scene.add(gridHelper);
-            
-            // CLOSED track curve - connected end to end
-            var trackCurvePoints = trackData.map(p => new THREE.Vector3(p[0], 0.3, p[2]));
-            var trackCurve = new THREE.CatmullRomCurve3(trackCurvePoints, true, 'catmullrom', 0.5);
-            
-            // Main track - thick tube
-            var trackGeometry = new THREE.TubeGeometry(trackCurve, 300, 0.5, 16, true);
-            var trackMaterial = new THREE.MeshStandardMaterial({{ 
-                color: 0xE10600, 
-                emissive: 0x800000,
-                roughness: 0.3,
-                metalness: 0.5
-            }});
-            var track = new THREE.Mesh(trackGeometry, trackMaterial);
-            scene.add(track);
-            
-            // Outer glow ring
-            var glowGeometry = new THREE.TubeGeometry(trackCurve, 300, 0.8, 12, true);
-            var glowMaterial = new THREE.MeshBasicMaterial({{ 
-                color: 0xFF4444, 
-                transparent: true, 
-                opacity: 0.15,
-                side: THREE.BackSide
-            }});
-            var glow = new THREE.Mesh(glowGeometry, glowMaterial);
-            scene.add(glow);
-            
-            // Track surface
-            var surfaceGeometry = new THREE.TubeGeometry(trackCurve, 300, 1.5, 12, true);
-            var surfaceMaterial = new THREE.MeshStandardMaterial({{ 
-                color: 0x1a1a1a, 
-                roughness: 0.9
-            }});
-            var surface = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
-            surface.position.y = -0.05;
-            scene.add(surface);
-            
-            // Corner markers - more visible
-            var numCorners = Math.min(15, Math.floor(trackData.length / 8));
-            for (var i = 0; i < numCorners; i++) {{
-                var idx = Math.floor(i * trackData.length / numCorners);
-                var p = trackData[idx];
+            function init() {{
+                // Scene
+                scene = new THREE.Scene();
+                scene.fog = new THREE.FogExp2(0x0a0a12, 0.015);
                 
-                // Glow sphere
-                var glowSphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.6, 16, 16),
-                    new THREE.MeshBasicMaterial({{ color: 0xFFD700, transparent: true, opacity: 0.3 }})
-                );
-                glowSphere.position.set(p[0], 0.8, p[2]);
-                scene.add(glowSphere);
+                // Camera - cinematic 3/4 angle
+                camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(25, 20, 30);
                 
-                // Solid core
-                var marker = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.3, 16, 16),
-                    new THREE.MeshStandardMaterial({{ 
-                        color: 0xFFD700, 
-                        emissive: 0xFFD700,
-                        emissiveIntensity: 0.8
-                    }})
+                // Renderer
+                renderer = new THREE.WebGLRenderer({{ 
+                    antialias: true,
+                    powerPreference: "high-performance"
+                }});
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1.2;
+                document.getElementById('canvas-container').appendChild(renderer.domElement);
+                
+                // Post-processing
+                composer = new EffectComposer(renderer);
+                const renderPass = new RenderPass(scene, camera);
+                composer.addPass(renderPass);
+                
+                const bloomPass = new UnrealBloomPass(
+                    new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    1.5,   // strength
+                    0.4,   // radius
+                    0.2    // threshold
                 );
-                marker.position.set(p[0], 0.8, p[2]);
-                scene.add(marker);
+                composer.addPass(bloomPass);
+                
+                const outputPass = new OutputPass();
+                composer.addPass(outputPass);
+                
+                // Controls
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.minDistance = 15;
+                controls.maxDistance = 80;
+                controls.maxPolarAngle = Math.PI / 2.2;
+                controls.target.set(0, 0, 0);
+                controls.autoRotate = false;
+                
+                controls.addEventListener('start', () => {{
+                    autoRotate = false;
+                    lastInteraction = Date.now();
+                }});
+                
+                // Normalize track data
+                let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+                trackData.forEach(p => {{
+                    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+                    minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
+                }});
+                const centerX = (minX + maxX) / 2;
+                const centerZ = (minZ + maxZ) / 2;
+                const scale = Math.max(maxX - minX, maxZ - minZ) / 20;
+                
+                const normalizedData = trackData.map(p => [
+                    (p[0] - centerX) / scale,
+                    p[1] / scale,
+                    (p[2] - centerZ) / scale
+                ]);
+                
+                // Create track curve
+                const curvePoints = normalizedData.map(p => new THREE.Vector3(p[0], 0.2, p[2]));
+                trackCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'catmullrom', 0.5);
+                
+                createEnvironment();
+                createTrack();
+                createLighting();
+                createCarMarker();
+                createParticles();
+                
+                document.getElementById('loading').style.display = 'none';
+                animate();
             }}
             
-            // Start/Finish - larger and more visible
-            var startGeom = new THREE.BoxGeometry(1.5, 0.2, 0.4);
-            var startMat = new THREE.MeshStandardMaterial({{ 
-                color: 0x00D2BE, 
-                emissive: 0x00D2BE,
-                emissiveIntensity: 1.0
-            }});
-            var startLine = new THREE.Mesh(startGeom, startMat);
-            var p0 = trackData[0];
-            var p1 = trackData[1] || trackData[trackData.length - 1];
-            startLine.position.set(p0[0], 0.4, p0[2]);
-            startLine.rotation.y = Math.atan2(p1[0] - p0[0], p1[2] - p0[2]);
-            scene.add(startLine);
+            function createEnvironment() {{
+                // Subtle reflective floor
+                const floorGeom = new THREE.PlaneGeometry(100, 100);
+                const floorMat = new THREE.MeshStandardMaterial({{
+                    color: 0x080810,
+                    roughness: 0.8,
+                    metalness: 0.3
+                }});
+                const floor = new THREE.Mesh(floorGeom, floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.y = -0.1;
+                scene.add(floor);
+                
+                // Minimal grid
+                const gridHelper = new THREE.GridHelper(60, 30, 0x1a1a2e, 0x0d0d15);
+                gridHelper.material.opacity = 0.3;
+                gridHelper.material.transparent = true;
+                scene.add(gridHelper);
+            }}
             
-            // Start glow
-            var startGlow = new THREE.Mesh(
-                new THREE.BoxGeometry(2, 0.4, 0.6),
-                new THREE.MeshBasicMaterial({{ color: 0x00D2BE, transparent: true, opacity: 0.3 }})
-            );
-            startGlow.position.set(p0[0], 0.4, p0[2]);
-            startGlow.rotation.y = startLine.rotation.y;
-            scene.add(startGlow);
+            function createTrack() {{
+                // Calculate curvature for color coding
+                const segments = 400;
+                const curvatures = [];
+                
+                for (let i = 0; i < segments; i++) {{
+                    const t = i / segments;
+                    const tangent = trackCurve.getTangentAt(t);
+                    const nextT = (t + 0.005) % 1;
+                    const nextTangent = trackCurve.getTangentAt(nextT);
+                    const curvature = 1 - tangent.dot(nextTangent);
+                    curvatures.push(curvature);
+                }}
+                
+                const maxCurv = Math.max(...curvatures);
+                
+                // Create colored track segments
+                for (let i = 0; i < segments; i++) {{
+                    const t = i / segments;
+                    const nextT = (i + 1) / segments;
+                    
+                    const start = trackCurve.getPointAt(t);
+                    const end = trackCurve.getPointAt(nextT);
+                    
+                    const curvature = curvatures[i];
+                    const normalizedCurv = curvature / maxCurv;
+                    
+                    let color;
+                    if (normalizedCurv < 0.3) {{
+                        // Straights - cyan/blue
+                        color = new THREE.Color(0x00D2BE);
+                    }} else if (normalizedCurv < 0.6) {{
+                        // Medium corners - yellow
+                        const lerp = (normalizedCurv - 0.3) / 0.3;
+                        color = new THREE.Color(0x00D2BE).lerp(new THREE.Color(0xFFD700), lerp);
+                    }} else {{
+                        // Sharp corners - red
+                        const lerp = (normalizedCurv - 0.6) / 0.4;
+                        color = new THREE.Color(0xFFD700).lerp(new THREE.Color(0xE10600), lerp);
+                    }}
+                    
+                    const tubeGeom = new THREE.CylinderGeometry(0.4, 0.4, start.distanceTo(end) + 0.1, 8);
+                    const tubeMat = new THREE.MeshStandardMaterial({{
+                        color: 0x1a1a1a,
+                        emissive: color,
+                        emissiveIntensity: 0.6 + normalizedCurv * 0.4,
+                        roughness: 0.4,
+                        metalness: 0.6
+                    }});
+                    
+                    const tube = new THREE.Mesh(tubeGeom, tubeMat);
+                    
+                    const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+                    tube.position.copy(mid);
+                    tube.lookAt(end);
+                    tube.rotateX(Math.PI / 2);
+                    
+                    scene.add(tube);
+                }}
+                
+                // Track surface (dark base)
+                const surfaceGeom = new THREE.TubeGeometry(trackCurve, 300, 1.2, 12, true);
+                const surfaceMat = new THREE.MeshStandardMaterial({{
+                    color: 0x0a0a0f,
+                    roughness: 0.9,
+                    metalness: 0.1
+                }});
+                const surface = new THREE.Mesh(surfaceGeom, surfaceMat);
+                surface.position.y = -0.02;
+                scene.add(surface);
+                
+                // Start/Finish line
+                const startPos = trackCurve.getPointAt(0);
+                const startTangent = trackCurve.getTangentAt(0);
+                
+                const startLineGeom = new THREE.BoxGeometry(0.1, 0.05, 1.5);
+                const startLineMat = new THREE.MeshStandardMaterial({{
+                    color: 0xffffff,
+                    emissive: 0xffffff,
+                    emissiveIntensity: 2
+                }});
+                const startLine = new THREE.Mesh(startLineGeom, startLineMat);
+                startLine.position.copy(startPos);
+                startLine.position.y = 0.35;
+                startLine.lookAt(startPos.clone().add(startTangent));
+                scene.add(startLine);
+                
+                // Start/finish glow
+                const startGlowGeom = new THREE.BoxGeometry(0.3, 0.1, 2);
+                const startGlowMat = new THREE.MeshBasicMaterial({{
+                    color: 0x00D2BE,
+                    transparent: true,
+                    opacity: 0.4
+                }});
+                const startGlow = new THREE.Mesh(startGlowGeom, startGlowMat);
+                startGlow.position.copy(startLine.position);
+                startGlow.rotation.copy(startLine.rotation);
+                scene.add(startGlow);
+            }}
             
-            // Center marker
-            var centerGeom = new THREE.CircleGeometry(1.5, 32);
-            var centerMat = new THREE.MeshStandardMaterial({{ 
-                color: 0x3671C6, 
-                transparent: true, 
-                opacity: 0.4,
-                side: THREE.DoubleSide
-            }});
-            var center = new THREE.Mesh(centerGeom, centerMat);
-            center.rotation.x = -Math.PI / 2;
-            center.position.y = -0.05;
-            scene.add(center);
+            function createLighting() {{
+                // Ambient
+                const ambient = new THREE.AmbientLight(0x1a1a2e, 0.4);
+                scene.add(ambient);
+                
+                // Main directional
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                dirLight.position.set(20, 40, 20);
+                scene.add(dirLight);
+                
+                // Cyan point light
+                const cyanLight = new THREE.PointLight(0x00D2BE, 2, 50);
+                cyanLight.position.set(-15, 10, 15);
+                scene.add(cyanLight);
+                
+                // Purple accent light
+                const purpleLight = new THREE.PointLight(0x9333ea, 1.5, 40);
+                purpleLight.position.set(15, 8, -15);
+                scene.add(purpleLight);
+                
+                // Red accent
+                const redLight = new THREE.PointLight(0xE10600, 1, 30);
+                redLight.position.set(0, 5, 0);
+                scene.add(redLight);
+            }}
             
-            // Lights
-            var ambientLight = new THREE.AmbientLight(0x404040, 1.5);
-            scene.add(ambientLight);
+            function createCarMarker() {{
+                // Car body
+                const carGeom = new THREE.SphereGeometry(0.3, 16, 16);
+                const carMat = new THREE.MeshStandardMaterial({{
+                    color: 0xE10600,
+                    emissive: 0xE10600,
+                    emissiveIntensity: 1.5
+                }});
+                carMarker = new THREE.Mesh(carGeom, carMat);
+                scene.add(carMarker);
+                
+                // Car light (follows car)
+                carLight = new THREE.PointLight(0x00D2BE, 3, 8);
+                scene.add(carLight);
+                
+                // Glow sprite
+                const spriteMat = new THREE.SpriteMaterial({{
+                    map: createGlowTexture(),
+                    color: 0x00D2BE,
+                    transparent: true,
+                    blending: THREE.AdditiveBlending
+                }});
+                const glowSprite = new THREE.Sprite(spriteMat);
+                glowSprite.scale.set(2, 2, 1);
+                carMarker.add(glowSprite);
+            }}
             
-            var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(20, 30, 20);
-            scene.add(dirLight);
+            function createGlowTexture() {{
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 128;
+                const ctx = canvas.getContext('2d');
+                
+                const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+                gradient.addColorStop(0.6, 'rgba(0,210,190,0.3)');
+                gradient.addColorStop(1, 'rgba(0,210,190,0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 128, 128);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                return texture;
+            }}
             
-            var dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-            dirLight2.position.set(-20, 20, -20);
-            scene.add(dirLight2);
+            function createParticles() {{
+                // Speed particles
+                const particleCount = 500;
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(particleCount * 3);
+                const colors = new Float32Array(particleCount * 3);
+                
+                for (let i = 0; i < particleCount; i++) {{
+                    positions[i * 3] = (Math.random() - 0.5) * 60;
+                    positions[i * 3 + 1] = Math.random() * 15;
+                    positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+                    
+                    const color = new THREE.Color();
+                    color.setHSL(0.5 + Math.random() * 0.2, 0.8, 0.6);
+                    colors[i * 3] = color.r;
+                    colors[i * 3 + 1] = color.g;
+                    colors[i * 3 + 2] = color.b;
+                }}
+                
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                
+                const material = new THREE.PointsMaterial({{
+                    size: 0.08,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.6,
+                    blending: THREE.AdditiveBlending
+                }});
+                
+                trailParticles = new THREE.Points(geometry, material);
+                scene.add(trailParticles);
+            }}
             
-            var pointLight = new THREE.PointLight(0xE10600, 0.6, 50);
-            pointLight.position.set(0, 8, 0);
-            scene.add(pointLight);
-            
-            // Auto rotation
-            var autoRotate = true;
+            function updateTelemetry() {{
+                const speed = Math.floor(250 + Math.random() * 80);
+                const throttle = Math.floor(70 + Math.random() * 30);
+                const lap = Math.floor(carProgress * 72) + 1;
+                
+                document.getElementById('speed-val').textContent = speed;
+                document.getElementById('throttle-val').textContent = throttle;
+                document.getElementById('lap-val').textContent = Math.min(lap, 72);
+            }}
             
             function animate() {{
                 requestAnimationFrame(animate);
                 
+                const delta = clock.getDelta();
+                const time = clock.getElapsedTime();
+                
+                // Resume auto-rotation after 4 seconds of inactivity
+                if (!autoRotate && Date.now() - lastInteraction > 4000) {{
+                    autoRotate = true;
+                }}
+                
+                // Auto-rotate camera
                 if (autoRotate) {{
-                    var time = Date.now() * 0.00008;
-                    camera.position.x = Math.cos(time) * 35;
-                    camera.position.z = Math.sin(time) * 35;
+                    const rotSpeed = 0.03;
+                    const radius = 40;
+                    camera.position.x = Math.cos(time * rotSpeed) * radius * 0.7;
+                    camera.position.z = Math.sin(time * rotSpeed) * radius;
+                    camera.position.y = 20 + Math.sin(time * 0.02) * 5;
                     camera.lookAt(0, 0, 0);
                 }}
                 
+                // Move car along track
+                carProgress = (carProgress + delta * 0.02) % 1;
+                const carPos = trackCurve.getPointAt(carProgress);
+                const carTangent = trackCurve.getTangentAt(carProgress);
+                
+                carMarker.position.copy(carPos);
+                carMarker.position.y += 0.5;
+                carLight.position.copy(carMarker.position);
+                
+                // Pulse effect
+                const pulse = 0.8 + Math.sin(time * 5) * 0.2;
+                carMarker.scale.setScalar(pulse);
+                
+                // Update telemetry every 100ms
+                if (Math.floor(time * 10) % 5 === 0) {{
+                    updateTelemetry();
+                }}
+                
+                // Animate particles
+                if (trailParticles) {{
+                    const positions = trailParticles.geometry.attributes.position.array;
+                    for (let i = 0; i < positions.length; i += 3) {{
+                        positions[i + 1] += 0.02;
+                        if (positions[i + 1] > 15) positions[i + 1] = 0;
+                    }}
+                    trailParticles.geometry.attributes.position.needsUpdate = true;
+                }}
+                
                 controls.update();
-                renderer.render(scene, camera);
+                composer.render();
             }}
             
-            controls.addEventListener('start', function() {{ autoRotate = false; }});
-            
-            animate();
-            
-            window.addEventListener('resize', function() {{
+            window.addEventListener('resize', () => {{
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
             }});
+            
+            init();
         </script>
     </body>
     </html>
@@ -1209,7 +1552,7 @@ def create_3d_circuit(gp_name="Default", year=2023):
 
 
 def render_3d_circuit(gp_name, year):
-    components.html(create_3d_circuit(gp_name, year), height=400)
+    components.html(create_3d_circuit(gp_name, year), height=500, scrolling=False)
 
 
 def render_zandvoort_3d():
