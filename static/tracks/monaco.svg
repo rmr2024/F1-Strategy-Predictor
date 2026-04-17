@@ -1,23 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
-  <!-- Monaco Grand Prix Circuit SVG Track Map -->
-  <g id="track" fill="none" stroke="#FFFFFF" stroke-width="3">
-    <!-- Simplified Monaco layout -->
-    <path d="M 680 520 
-             L 680 420
-             C 680 380, 660 350, 620 350
-             L 520 350
-             C 480 350, 460 330, 460 290
-             L 460 220
-             C 460 180, 440 150, 400 150
-             L 280 150
-             C 220 150, 180 180, 160 220
-             L 120 350
-             C 100 400, 120 450, 160 480
-             L 250 520
-             C 300 550, 350 540, 400 510
-             L 480 470
-             C 520 450, 560 450, 600 470
-             L 650 490
-             L 680 520 Z" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" width="1000" height="800">
+  <title>Monaco Grand Prix Circuit</title>
+  <g id="track" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 850 680 
+             L 850 600
+             Q 850 550, 800 530
+             L 650 530
+             Q 580 530, 550 470
+             L 550 350
+             Q 550 280, 480 250
+             L 300 250
+             Q 200 250, 150 300
+             L 100 400
+             Q 60 480, 100 550
+             L 180 620
+             Q 250 680, 350 650
+             L 500 600
+             Q 580 580, 620 620
+             L 680 670
+             L 750 700
+             L 850 680 Z" />
   </g>
 </svg>
