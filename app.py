@@ -777,8 +777,8 @@ def create_race_statistics(df):
         showlegend=False,
         height=350,
         margin=dict(l=40, r=20, t=40, b=40),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)'
+        plot_bgcolor=COLORS['bg'],
+        paper_bgcolor=COLORS['bg']
     )
     return fig
 
@@ -802,8 +802,8 @@ def create_tyre_distribution(df):
     ))
     
     fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor=COLORS['bg'],
+        plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text'], family="Inter, sans-serif"),
         height=350,
         showlegend=False,
@@ -840,8 +840,8 @@ def create_driver_speed_heatmap(df):
     ))
     
     fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor=COLORS['bg'],
+        plot_bgcolor=COLORS['bg'],
         font=dict(color=COLORS['text'], family="Inter, sans-serif"),
         xaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_red'], spikethickness=1),
         yaxis=dict(tickfont=dict(color=COLORS['text_muted']), gridcolor=COLORS['grid'], showspikes=True, spikecolor=COLORS['accent_red'], spikethickness=1),
