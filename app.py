@@ -480,7 +480,7 @@ def create_position_timeline(df):
         font=dict(color=COLORS['text']),
         xaxis=dict(title="Lap Number", gridcolor=COLORS['grid']),
         yaxis=dict(title="Position", gridcolor=COLORS['grid'], range=[20, 1], 
-                   autorange="reversed"),
+                   autorange=False),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         height=400,
         title="Position Changes Over Race"
@@ -1173,6 +1173,36 @@ def render_3d_circuit(gp_name, year):
     components.html(create_3d_circuit(gp_name, year), height=400)
 
 
+def render_zandvoort_3d():
+    st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
+
+    static_file_path = os.path.join(os.path.dirname(__file__), 'static', 'track_visualizer.html')
+    
+    if os.path.exists(static_file_path):
+        with open(static_file_path, 'r') as f:
+            html_content = f.read()
+        components.html(html_content, height=600, scrolling=True)
+    else:
+        st.warning("3D visualization file not found. Using fallback visualization.")
+        render_3d_circuit("Dutch Grand Prix", 2024)
+    
+    st.markdown("""
+    <div style="background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(12px); 
+                border-radius: 16px; padding: 20px; margin-top: 20px; 
+                border: 1px solid rgba(255, 255, 255, 0.08);">
+        <h4 style="color: #00D2BE; margin-top: 0;">Circuit Zandvoort Details</h4>
+        <ul style="color: #A0A0A0; line-height: 1.8;">
+            <li><strong>Location:</strong> Zandvoort, Netherlands</li>
+            <li><strong>First Grand Prix:</strong> 1952</li>
+            <li><strong>Track Length:</strong> 4.259 km</li>
+            <li><strong>Turns:</strong> 14 (including the famous banked Turn 3)</li>
+            <li><strong>Race Laps:</strong> 72</li>
+            <li><strong>DRS Zones:</strong> 2</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 def render_beginner_explanation():
     st.markdown("""
     <div class="beginner-box">
@@ -1564,7 +1594,7 @@ def main():
         
         st.markdown('<div class="spacer-md"></div>', unsafe_allow_html=True)
         
-        tab1, tab2, tab3 = st.tabs(["Predictions", "Explanation", "Strategy Simulator"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Predictions", "Explanation", "Strategy Simulator", "3D Track"])
         
         with tab1:
             render_predictions_tab(df_pred, model, config, threshold, gp, year)
@@ -1574,6 +1604,9 @@ def main():
         
         with tab3:
             render_strategy_simulator()
+        
+        with tab4:
+            render_zandvoort_3d()
         
         with st.expander("Model Information"):
             if model is not None and config is not None:

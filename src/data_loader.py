@@ -45,6 +45,11 @@ def load_race_data(year: int, gp: str, session_type: str = "R",
     load_params = {"laps": True, "telemetry": load_telemetry, "weather": load_weather}
     session.load(**load_params)
 
+    if load_telemetry and hasattr(session, 'telemetry'):
+        telemetry_cols = ['SpeedI1', 'SpeedI2', 'SpeedFL', 'SpeedST']
+        if any(col in session.laps.columns for col in telemetry_cols):
+            pass
+    
     laps = session.laps
 
     df = laps[[
@@ -101,10 +106,18 @@ def get_track_coordinates(year: int, gp: str) -> list:
             return []
         
         pos = lap.get_pos_data()
-        if pos.empty or 'X' not in pos.columns or 'Y' not in pos.columns:
+        if pos is None or pos.empty:
             return []
         
-        track = pos[['X', 'Y']].dropna().values
+        required_cols = ['X', 'Y']
+        if not all(col in pos.columns for col in required_cols):
+            return []
+        
+        track = pos[required_cols].dropna()
+        if track.empty:
+            return []
+        
+        track = track.values
         
         circuit = session.get_circuit_info()
         track_angle = circuit.rotation / 180 * np.pi if circuit.rotation else 0
