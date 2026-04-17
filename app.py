@@ -770,10 +770,9 @@ def create_race_statistics(df):
     
     fig.update_layout(
         font=dict(color=COLORS['text'], family="Inter, sans-serif"),
-        xaxis=dict(title="", gridcolor=COLORS['grid'], tickfont=dict(color=COLORS['text_muted']), showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1),
-        yaxis=dict(title="Avg Lap Time (s)", gridcolor=COLORS['grid'], 
+        xaxis=dict(title=dict(text="", font=dict(color=COLORS['text'])), gridcolor=COLORS['grid'], tickfont=dict(color=COLORS['text_muted']), showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1),
+        yaxis=dict(title=dict(text="Avg Lap Time (s)", font=dict(color=COLORS['text'])), gridcolor=COLORS['grid'], 
                    tickfont=dict(color=COLORS['text_muted']),
-                   titlefont=dict(color=COLORS['text']),
                    showspikes=True, spikecolor=COLORS['accent_green'], spikethickness=1),
         showlegend=False,
         height=350,
