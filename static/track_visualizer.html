@@ -128,6 +128,12 @@
             transform: translate(-50%, -50%);
             text-align: center;
             z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         .loading-spinner {
@@ -158,37 +164,23 @@
             pointer-events: auto;
         }
 
-        .turn-label {
+        .stats {
             position: absolute;
-            color: #fff;
-            font-size: 12px;
+            top: 80px;
+            left: 20px;
+            background: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.75rem;
+            color: #A0A0A0;
+            pointer-events: auto;
+        }
+
+        .stats-value {
+            color: #00D2BE;
             font-weight: 600;
-            text-align: center;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            text-shadow: 0 0 10px rgba(0,0,0,0.8);
-            white-space: nowrap;
-        }
-
-        .turn-label.turn {
-            color: #FFD700;
-        }
-
-        .turn-label.danger {
-            color: #FF3333;
-        }
-
-        .start-label {
-            position: absolute;
-            padding: 4px 12px;
-            background: linear-gradient(135deg, #00D2BE, #3671C6);
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            white-space: nowrap;
         }
     </style>
 </head>
@@ -197,10 +189,16 @@
         <div class="overlay">
             <div class="header">
                 <div class="circuit-name">CIRCUIT ZANDVOORT</div>
-                <div class="subtitle">Formula 1 Dutch Grand Prix</div>
+                <div class="subtitle">Formula 1 Dutch Grand Prix - 3D Track Visualization</div>
             </div>
 
             <div class="data-source" id="data-source">Data: Loading...</div>
+
+            <div class="stats" id="stats">
+                <div>Track Points: <span class="stats-value" id="track-points">-</span></div>
+                <div>Turns Detected: <span class="stats-value" id="turn-count">-</span></div>
+                <div>FPS: <span class="stats-value" id="fps-counter">-</span></div>
+            </div>
 
             <div class="legend">
                 <div class="legend-title">Turn Classification</div>
@@ -222,11 +220,9 @@
                 <span>Drag</span> to rotate | <span>Scroll</span> to zoom | <span>Right-click</span> to pan
             </div>
 
-            <div id="labels-container"></div>
-
             <div class="loading" id="loading">
                 <div class="loading-spinner"></div>
-                <div class="loading-text">Loading track data...</div>
+                <div class="loading-text">Loading track data from OpenStreetMap...</div>
             </div>
         </div>
     </div>
@@ -249,6 +245,12 @@
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
         const OVERPASS_API = 'https://overpass-api.de/api/interpreter';
+
+        let scene, camera, renderer, composer, controls;
+        let carMesh, trackCurve;
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 60;
 
         async function fetchTrackData() {
             const query = `
@@ -317,7 +319,10 @@
             const remaining = new Set(points.slice(1).map((p, i) => i + 1));
 
             let current = points[0];
-            while (remaining.size > 0) {
+            let iterations = 0;
+            const maxIterations = points.length * 2;
+
+            while (remaining.size > 0 && iterations < maxIterations) {
                 let minDist = Infinity;
                 let minIdx = -1;
                 let minPoint = null;
@@ -339,19 +344,37 @@
                 } else {
                     break;
                 }
+                iterations++;
+            }
+
+            if (sorted.length < points.length * 0.3) {
+                return interpolatePoints(points);
             }
 
             return sorted;
+        }
+
+        function interpolatePoints(points) {
+            const interpolated = [];
+            for (let i = 0; i < points.length; i++) {
+                interpolated.push(points[i]);
+                if (i < points.length - 1) {
+                    const midLat = (points[i][0] + points[i + 1][0]) / 2;
+                    const midLon = (points[i][1] + points[i + 1][1]) / 2;
+                    interpolated.push([midLat, midLon]);
+                }
+            }
+            return interpolated;
         }
 
         function haversineDistance(p1, p2) {
             const R = 6371;
             const dLat = (p2[0] - p1[0]) * Math.PI / 180;
             const dLon = (p2[1] - p1[1]) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                       Math.cos(p1[0] * Math.PI / 180) * Math.cos(p2[0] * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             return R * c;
         }
 
@@ -360,7 +383,7 @@
             const centerLon = 4.5409;
 
             const points = [];
-            const numPoints = 200;
+            const numPoints = 250;
 
             for (let i = 0; i < numPoints; i++) {
                 const t = (i / numPoints) * 2 * Math.PI;
@@ -407,8 +430,8 @@
             const sharpThreshold = 0.3;
 
             for (let i = 1; i < points3D.length - 1; i++) {
-                const v1 = new THREE.Vector3().subVectors(points3D[i], points3D[i-1]).normalize();
-                const v2 = new THREE.Vector3().subVectors(points3D[i+1], points3D[i]).normalize();
+                const v1 = new THREE.Vector3().subVectors(points3D[i], points3D[i - 1]).normalize();
+                const v2 = new THREE.Vector3().subVectors(points3D[i + 1], points3D[i]).normalize();
                 const angle = v1.angleTo(v2);
 
                 let classification = 'normal';
@@ -425,7 +448,7 @@
                 if (classification !== 'normal') {
                     turns.push({
                         index: i,
-                        point: points3D[i],
+                        point: points3D[i].clone(),
                         angle: angle,
                         classification: classification
                     });
@@ -442,27 +465,39 @@
             return { turns, segments };
         }
 
-        function createTrackSegments(segments, trackCurve) {
+        function addElevation(points3D) {
+            const elevated = [];
+            for (let i = 0; i < points3D.length; i++) {
+                const point = points3D[i].clone();
+                const elevation = Math.sin(i * 0.1) * 2 + Math.sin(i * 0.05) * 3;
+                point.y = elevation;
+                elevated.push(point);
+            }
+            return elevated;
+        }
+
+        function createTrackSegments(segments, curve) {
             const group = new THREE.Group();
-            const tubeRadius = 1.5;
-            const radialSegments = 8;
+            const tubeRadius = 2;
+            const radialSegments = 12;
+            const tubularSegments = segments.length * 3;
 
             const tubeGeometry = new THREE.TubeGeometry(
-                trackCurve,
-                segments.length * 4,
+                curve,
+                tubularSegments,
                 tubeRadius,
                 radialSegments,
-                false
+                true
             );
 
             const positions = tubeGeometry.attributes.position;
             const colors = new Float32Array(positions.count * 3);
 
             const pointsOnCurve = [];
-            const numCurvePoints = segments.length * 4;
+            const numCurvePoints = tubularSegments;
             for (let i = 0; i <= numCurvePoints; i++) {
                 const t = i / numCurvePoints;
-                pointsOnCurve.push(trackCurve.getPoint(t));
+                pointsOnCurve.push(curve.getPoint(t));
             }
 
             for (let i = 0; i < positions.count; i++) {
@@ -474,23 +509,18 @@
 
                 let minDist = Infinity;
                 let closestSegIdx = 0;
-                let closestParam = 0;
 
                 for (let j = 0; j < pointsOnCurve.length - 1; j++) {
-                    const p1 = pointsOnCurve[j];
-                    const p2 = pointsOnCurve[j + 1];
-                    const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-
+                    const mid = new THREE.Vector3().addVectors(pointsOnCurve[j], pointsOnCurve[j + 1]).multiplyScalar(0.5);
                     const dist = point.distanceTo(mid);
                     if (dist < minDist) {
                         minDist = dist;
-                        closestSegIdx = Math.floor(j / 4);
-                        closestParam = j / pointsOnCurve.length;
+                        closestSegIdx = Math.floor(j * segments.length / numCurvePoints);
                     }
                 }
 
                 const segIdx = Math.min(closestSegIdx, segments.length - 1);
-                const segment = segments[segIdx];
+                const segment = segments[segIdx] || segments[0];
 
                 colors[i * 3] = segment.color.r;
                 colors[i * 3 + 1] = segment.color.g;
@@ -501,36 +531,92 @@
 
             const material = new THREE.MeshStandardMaterial({
                 vertexColors: true,
-                roughness: 0.3,
-                metalness: 0.7,
-                emissive: new THREE.Color(0x000000),
-                emissiveIntensity: 0.5
+                roughness: 0.2,
+                metalness: 0.8,
+                emissive: new THREE.Color(0x111111),
+                emissiveIntensity: 0.3
             });
 
             const track = new THREE.Mesh(tubeGeometry, material);
             group.add(track);
 
+            const glowGeometry = new THREE.TubeGeometry(
+                curve,
+                tubularSegments,
+                tubeRadius * 2.5,
+                radialSegments,
+                true
+            );
+
+            const glowColors = new Float32Array(positions.count * 3);
+            for (let i = 0; i < positions.count; i++) {
+                const segIdx = Math.min(Math.floor(i / positions.count * segments.length), segments.length - 1);
+                const segment = segments[segIdx] || segments[0];
+                glowColors[i * 3] = segment.color.r * 0.8;
+                glowColors[i * 3 + 1] = segment.color.g * 0.8;
+                glowColors[i * 3 + 2] = segment.color.b * 0.8;
+            }
+            glowGeometry.setAttribute('color', new THREE.BufferAttribute(glowColors, 3));
+
             const glowMaterial = new THREE.MeshBasicMaterial({
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.3,
+                opacity: 0.25,
                 side: THREE.BackSide
             });
-
-            const glowGeometry = new THREE.TubeGeometry(
-                trackCurve,
-                segments.length * 4,
-                tubeRadius * 1.8,
-                radialSegments,
-                false
-            );
-
-            glowGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
             const glow = new THREE.Mesh(glowGeometry, glowMaterial);
             group.add(glow);
 
             return group;
+        }
+
+        function createCar(curve) {
+            const carGroup = new THREE.Group();
+
+            const bodyGeometry = new THREE.BoxGeometry(2, 0.8, 4);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0xE10600,
+                emissive: 0xE10600,
+                emissiveIntensity: 2.5,
+                metalness: 0.9,
+                roughness: 0.1
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 1;
+            carGroup.add(body);
+
+            const haloGeometry = new THREE.TorusGeometry(0.3, 0.05, 8, 16);
+            const haloMaterial = new THREE.MeshStandardMaterial({
+                color: 0x00D2BE,
+                emissive: 0x00D2BE,
+                emissiveIntensity: 3
+            });
+            const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+            halo.position.set(0, 1.2, 1.5);
+            halo.rotation.x = Math.PI / 2;
+            carGroup.add(halo);
+
+            const lightGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+            const lightMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                emissive: 0xFFFFFF,
+                emissiveIntensity: 4
+            });
+
+            const leftLight = new THREE.Mesh(lightGeometry, lightMaterial);
+            leftLight.position.set(-0.6, 0.6, 2);
+            carGroup.add(leftLight);
+
+            const rightLight = new THREE.Mesh(lightGeometry, lightMaterial);
+            rightLight.position.set(0.6, 0.6, 2);
+            carGroup.add(rightLight);
+
+            const carLight = new THREE.PointLight(0xFFFFFF, 3, 30);
+            carLight.position.set(0, 2, 3);
+            carGroup.add(carLight);
+
+            return carGroup;
         }
 
         function createStartFinishLine(points3D) {
@@ -539,48 +625,45 @@
             const direction = new THREE.Vector3().subVectors(next, start).normalize();
             const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x);
 
-            const lineGeometry = new THREE.BoxGeometry(8, 0.5, 1);
+            const lineGeometry = new THREE.BoxGeometry(12, 0.3, 1.5);
             const lineMaterial = new THREE.MeshStandardMaterial({
                 color: 0xFFFFFF,
                 emissive: 0xFFFFFF,
-                emissiveIntensity: 2
+                emissiveIntensity: 3
             });
 
             const line = new THREE.Mesh(lineGeometry, lineMaterial);
             line.position.copy(start);
-            line.position.y = 1;
+            line.position.y = start.y + 2;
             line.rotation.y = Math.atan2(direction.x, direction.z);
 
             return line;
         }
 
-        function createTurnMarkers(turns, points3D) {
+        function createTurnMarkers(turns) {
             const markers = new THREE.Group();
 
-            const dangerMarkers = turns.filter(t => t.classification === 'danger').slice(0, 3);
-            const sharpMarkers = turns.filter(t => t.classification === 'sharp').slice(0, 5);
-
             const allMarkers = [
-                ...dangerMarkers.map(t => ({ ...t, type: 'danger' })),
-                ...sharpMarkers.map(t => ({ ...t, type: 'sharp' }))
-            ].slice(0, 8);
+                ...turns.filter(t => t.classification === 'danger').map(t => ({ ...t, type: 'danger' })),
+                ...turns.filter(t => t.classification === 'sharp').map(t => ({ ...t, type: 'sharp' }))
+            ].slice(0, 10);
 
-            const markerGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+            const markerGeometry = new THREE.SphereGeometry(2, 16, 16);
 
-            allMarkers.forEach((turn, idx) => {
+            allMarkers.forEach((turn) => {
                 const color = turn.type === 'danger' ? 0xFF3333 : 0xFFD700;
                 const markerMaterial = new THREE.MeshStandardMaterial({
                     color: color,
                     emissive: color,
-                    emissiveIntensity: 1.5,
+                    emissiveIntensity: 2.5,
                     transparent: true,
-                    opacity: 0.8
+                    opacity: 0.9
                 });
 
                 const marker = new THREE.Mesh(markerGeometry, markerMaterial);
                 marker.position.copy(turn.point);
-                marker.position.y = 2;
-                marker.userData = { turn: idx + 1, type: turn.type, angle: turn.angle };
+                marker.position.y = turn.point.y + 3;
+                marker.userData = { angle: turn.angle, type: turn.type };
 
                 markers.add(marker);
             });
@@ -589,24 +672,24 @@
         }
 
         function createGround() {
-            const groundGeometry = new THREE.CircleGeometry(500, 64);
+            const groundGeometry = new THREE.CircleGeometry(600, 64);
             const groundMaterial = new THREE.MeshStandardMaterial({
-                color: 0x0a0a0a,
-                roughness: 0.9,
-                metalness: 0.1
+                color: 0x080808,
+                roughness: 0.95,
+                metalness: 0.05
             });
 
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -0.5;
+            ground.position.y = -5;
             ground.receiveShadow = true;
 
             return ground;
         }
 
         function createGrid() {
-            const gridHelper = new THREE.GridHelper(400, 40, 0x1a1a1a, 0x111111);
-            gridHelper.position.y = -0.4;
+            const gridHelper = new THREE.GridHelper(500, 50, 0x1a1a1a, 0x0f0f0f);
+            gridHelper.position.y = -4.9;
             return gridHelper;
         }
 
@@ -616,19 +699,41 @@
             const startLabel = document.createElement('div');
             startLabel.className = 'start-label';
             startLabel.textContent = 'START/FINISH';
+            startLabel.style.cssText = `
+                position: absolute;
+                padding: 6px 16px;
+                background: linear-gradient(135deg, #00D2BE, #3671C6);
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: 2px;
+                color: white;
+                transform: translate(-50%, -50%);
+                box-shadow: 0 0 20px rgba(0, 210, 190, 0.5);
+            `;
             const startObject = new CSS2DObject(startLabel);
             startObject.position.copy(points3D[0]);
-            startObject.position.y = 8;
+            startObject.position.y = points3D[0].y + 15;
             labels.push(startObject);
 
             const numberedTurns = turns.slice(0, 6);
             numberedTurns.forEach((turn, idx) => {
                 const labelDiv = document.createElement('div');
-                labelDiv.className = `turn-label ${turn.classification}`;
-                labelDiv.textContent = `TURN ${idx + 1}`;
+                labelDiv.className = 'turn-label';
+                labelDiv.style.cssText = `
+                    padding: 4px 12px;
+                    background: rgba(0, 0, 0, 0.8);
+                    border: 2px solid ${turn.classification === 'danger' ? '#FF3333' : '#FFD700'};
+                    border-radius: 6px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: ${turn.classification === 'danger' ? '#FF3333' : '#FFD700'};
+                    text-shadow: 0 0 10px ${turn.classification === 'danger' ? '#FF3333' : '#FFD700'};
+                `;
+                labelDiv.textContent = `T${idx + 1}`;
                 const labelObj = new CSS2DObject(labelDiv);
                 labelObj.position.copy(turn.point);
-                labelObj.position.y = 10;
+                labelObj.position.y = turn.point.y + 12;
                 labels.push(labelObj);
             });
 
@@ -639,27 +744,27 @@
             const container = document.getElementById('canvas-container');
             const loading = document.getElementById('loading');
 
-            const scene = new THREE.Scene();
+            scene = new THREE.Scene();
             scene.background = new THREE.Color(0x050505);
-            scene.fog = new THREE.Fog(0x050505, 100, 500);
+            scene.fog = new THREE.Fog(0x050505, 150, 600);
 
-            const camera = new THREE.PerspectiveCamera(
+            camera = new THREE.PerspectiveCamera(
                 60,
                 window.innerWidth / window.innerHeight,
                 0.1,
-                2000
+                3000
             );
-            camera.position.set(0, 120, 200);
+            camera.position.set(0, 150, 250);
             camera.lookAt(0, 0, 0);
 
-            const renderer = new THREE.WebGLRenderer({
+            renderer = new THREE.WebGLRenderer({
                 antialias: true,
                 powerPreference: 'high-performance'
             });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1;
+            renderer.toneMappingExposure = 1.2;
             container.appendChild(renderer.domElement);
 
             const labelRenderer = new CSS2DRenderer();
@@ -669,38 +774,39 @@
             labelRenderer.domElement.style.pointerEvents = 'none';
             container.appendChild(labelRenderer.domElement);
 
-            const controls = new OrbitControls(camera, renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.minDistance = 50;
-            controls.maxDistance = 500;
-            controls.maxPolarAngle = Math.PI / 2.2;
+            controls.minDistance = 80;
+            controls.maxDistance = 600;
+            controls.maxPolarAngle = Math.PI / 2.1;
             controls.target.set(0, 0, 0);
 
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
             scene.add(ambientLight);
 
-            const pointLight1 = new THREE.PointLight(0xE10600, 2, 300);
-            pointLight1.position.set(50, 100, 50);
+            const pointLight1 = new THREE.PointLight(0xE10600, 3, 400);
+            pointLight1.position.set(100, 150, 100);
             scene.add(pointLight1);
 
-            const pointLight2 = new THREE.PointLight(0x3671C6, 1.5, 300);
-            pointLight2.position.set(-50, 80, -50);
+            const pointLight2 = new THREE.PointLight(0x3671C6, 2.5, 400);
+            pointLight2.position.set(-100, 120, -100);
             scene.add(pointLight2);
 
-            const pointLight3 = new THREE.PointLight(0x00D2BE, 1, 200);
-            pointLight3.position.set(0, 60, 0);
+            const pointLight3 = new THREE.PointLight(0x00D2BE, 2, 300);
+            pointLight3.position.set(0, 100, 0);
             scene.add(pointLight3);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(100, 150, 100);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(150, 200, 150);
             scene.add(directionalLight);
 
             const trackPoints = await fetchTrackData();
+            document.getElementById('track-points').textContent = trackPoints.length;
             document.getElementById('data-source').textContent =
                 `Data: OpenStreetMap (${trackPoints.length} points)`;
 
-            const points3D = convertTo3D(trackPoints);
+            let points3D = convertTo3D(trackPoints);
 
             let centerX = 0, centerZ = 0;
             points3D.forEach(p => { centerX += p.x; centerZ += p.z; });
@@ -712,9 +818,14 @@
                 p.z -= centerZ;
             });
 
-            const trackCurve = new THREE.CatmullRomCurve3(points3D, true, 'catmullrom', 0.5);
+            points3D = addElevation(points3D);
 
-            const { turns, segments } = detectTurns(trackCurve.getPoints(points3D.length * 2));
+            trackCurve = new THREE.CatmullRomCurve3(points3D, true, 'catmullrom', 0.5);
+
+            const curvePoints = trackCurve.getPoints(points3D.length * 2);
+            const { turns, segments } = detectTurns(curvePoints);
+
+            document.getElementById('turn-count').textContent = turns.length;
 
             const trackGroup = createTrackSegments(segments, trackCurve);
             scene.add(trackGroup);
@@ -722,8 +833,11 @@
             const startLine = createStartFinishLine(points3D);
             scene.add(startLine);
 
-            const turnMarkers = createTurnMarkers(turns, points3D);
+            const turnMarkers = createTurnMarkers(turns);
             scene.add(turnMarkers);
+
+            carMesh = createCar(trackCurve);
+            scene.add(carMesh);
 
             const ground = createGround();
             scene.add(ground);
@@ -734,7 +848,7 @@
             const labels = createLabels(points3D, turns);
             labels.forEach(label => scene.add(label));
 
-            const composer = new EffectComposer(renderer);
+            composer = new EffectComposer(renderer);
             const renderPass = new RenderPass(scene, camera);
             composer.addPass(renderPass);
 
@@ -746,15 +860,38 @@
             );
             composer.addPass(bloomPass);
 
-            loading.style.display = 'none';
+            loading.classList.add('hidden');
+            setTimeout(() => { loading.style.display = 'none'; }, 500);
 
             let autoRotate = true;
+            let carProgress = 0;
 
             function animate() {
                 requestAnimationFrame(animate);
 
                 if (autoRotate) {
                     scene.rotation.y += 0.002;
+                }
+
+                carProgress += 0.0008;
+                if (carProgress > 1) carProgress = 0;
+
+                const carPosition = trackCurve.getPoint(carProgress);
+                const carTangent = trackCurve.getTangent(carProgress);
+
+                carMesh.position.copy(carPosition);
+                carMesh.position.y += 0.5;
+
+                const lookAhead = trackCurve.getPoint((carProgress + 0.02) % 1);
+                carMesh.lookAt(lookAhead);
+
+                frameCount++;
+                const currentTime = performance.now();
+                if (currentTime - lastTime >= 1000) {
+                    fps = frameCount;
+                    frameCount = 0;
+                    lastTime = currentTime;
+                    document.getElementById('fps-counter').textContent = fps;
                 }
 
                 controls.update();
