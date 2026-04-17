@@ -956,26 +956,31 @@ def create_track_points(track_info):
     return points
 
 
-def create_3d_circuit(gp_name="Default", year=2023):
-    """Create broadcast-quality 3D circuit visualization"""
+def create_3d_circuit(gp_name="Default", year=2023, svg_track_path=None):
+    """Create broadcast-quality 3D circuit visualization with SVG track support"""
     
     track_coords = []
     data_source = "No data"
     
-    try:
-        track_coords = get_track_coordinates(year, gp_name)
-        if track_coords and len(track_coords) >= 10:
-            data_source = f"FastF1 Telemetry ({len(track_coords)} pts)"
-        else:
-            raise ValueError("Insufficient track points")
-    except Exception as e:
-        print(f"Track data error: {e}")
-        track_coords = []
-    
-    if not track_coords or len(track_coords) < 10:
-        track_info = get_track_geometry(gp_name)
-        track_coords = create_track_points(track_info)
-        data_source = "Simulated Track Data"
+    svg_url = None
+    if svg_track_path and os.path.exists(svg_track_path):
+        svg_url = svg_track_path
+        data_source = f"SVG Track Map"
+    else:
+        try:
+            track_coords = get_track_coordinates(year, gp_name)
+            if track_coords and len(track_coords) >= 10:
+                data_source = f"FastF1 Telemetry ({len(track_coords)} pts)"
+            else:
+                raise ValueError("Insufficient track points")
+        except Exception as e:
+            print(f"Track data error: {e}")
+            track_coords = []
+        
+        if not track_coords or len(track_coords) < 10:
+            track_info = get_track_geometry(gp_name)
+            track_coords = create_track_points(track_info)
+            data_source = "Simulated Track Data"
     
     track_data_js = "[" + ",".join([f"[{float(x):.2f},{float(y):.2f},{float(z):.2f}]" for x, y, z in track_coords[:200]]) + "]"
     
@@ -1152,12 +1157,14 @@ def create_3d_circuit(gp_name="Default", year=2023):
         <script type="module">
             import * as THREE from 'three';
             import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
+            import {{ SVGLoader }} from 'three/addons/loaders/SVGLoader.js';
             import {{ EffectComposer }} from 'three/addons/postprocessing/EffectComposer.js';
             import {{ RenderPass }} from 'three/addons/postprocessing/RenderPass.js';
             import {{ UnrealBloomPass }} from 'three/addons/postprocessing/UnrealBloomPass.js';
             import {{ OutputPass }} from 'three/addons/postprocessing/OutputPass.js';
             
             const trackData = {track_data_js};
+            const svgUrl = {f"'{svg_url}'" if svg_url else "null"};
             
             let scene, camera, renderer, controls, composer;
             let trackCurve, carMarker, carLight, trailParticles;
@@ -1165,6 +1172,59 @@ def create_3d_circuit(gp_name="Default", year=2023):
             let autoRotate = true;
             let lastInteraction = 0;
             let carProgress = 0;
+            
+            function extractSvgTrackPaths(svgData) {{
+                const points = [];
+                const paths = svgData.paths;
+                
+                paths.forEach(path => {{
+                    const shapes = path.toShapes(true);
+                    shapes.forEach(shape => {{
+                        const numPoints = 300;
+                        const spacedPoints = shape.getSpacedPoints(numPoints);
+                        spacedPoints.forEach(p => {{
+                            points.push(new THREE.Vector3(p.x, 0, -p.y));
+                        }});
+                    }});
+                }});
+                
+                return points;
+            }}
+            
+            function normalizeTrackPoints(points) {{
+                if (points.length === 0) return points;
+                
+                let minX = Infinity, maxX = -Infinity;
+                let minZ = Infinity, maxZ = -Infinity;
+                
+                points.forEach(p => {{
+                    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                    minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z);
+                }});
+                
+                const centerX = (minX + maxX) / 2;
+                const centerZ = (minZ + maxZ) / 2;
+                const scale = Math.max(maxX - minX, maxZ - minZ) / 20;
+                
+                return points.map(p => new THREE.Vector3(
+                    (p.x - centerX) / scale,
+                    p.y / scale,
+                    (p.z - centerZ) / scale
+                ));
+            }}
+            
+            async function loadSvgTrack(url) {{
+                return new Promise((resolve, reject) => {{
+                    const loader = new SVGLoader();
+                    loader.load(url, (data) => {{
+                        const rawPoints = extractSvgTrackPaths(data);
+                        const normalizedPoints = normalizeTrackPoints(rawPoints);
+                        resolve(normalizedPoints);
+                    }}, undefined, (error) => {{
+                        reject(error);
+                    }});
+                }});
+            }}
             
             function init() {{
                 // Scene
@@ -1217,24 +1277,27 @@ def create_3d_circuit(gp_name="Default", year=2023):
                     lastInteraction = Date.now();
                 }});
                 
-                // Normalize track data
-                let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-                trackData.forEach(p => {{
-                    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
-                    minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
-                }});
-                const centerX = (minX + maxX) / 2;
-                const centerZ = (minZ + maxZ) / 2;
-                const scale = Math.max(maxX - minX, maxZ - minZ) / 20;
+                // Load track data (SVG or fallback)
+                let curvePoints;
                 
-                const normalizedData = trackData.map(p => [
-                    (p[0] - centerX) / scale,
-                    p[1] / scale,
-                    (p[2] - centerZ) / scale
-                ]);
+                if (svgUrl) {{
+                    try {{
+                        const svgPoints = await loadSvgTrack(svgUrl);
+                        if (svgPoints.length > 10) {{
+                            curvePoints = svgPoints;
+                            document.getElementById('data-source').textContent = 'SVG Track Map';
+                        }} else {{
+                            throw new Error('Insufficient SVG points');
+                        }}
+                    }} catch (e) {{
+                        console.warn('SVG load failed, using fallback:', e);
+                        curvePoints = getNormalizedTrackPoints(trackData);
+                    }}
+                }} else {{
+                    curvePoints = getNormalizedTrackPoints(trackData);
+                }}
                 
-                // Create track curve
-                const curvePoints = normalizedData.map(p => new THREE.Vector3(p[0], 0.2, p[2]));
+                // Create track curve from points
                 trackCurve = new THREE.CatmullRomCurve3(curvePoints, true, 'catmullrom', 0.5);
                 
                 createEnvironment();
@@ -1245,6 +1308,23 @@ def create_3d_circuit(gp_name="Default", year=2023):
                 
                 document.getElementById('loading').style.display = 'none';
                 animate();
+            }}
+            
+            function getNormalizedTrackPoints(data) {{
+                let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+                data.forEach(p => {{
+                    minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+                    minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
+                }});
+                const centerX = (minX + maxX) / 2;
+                const centerZ = (minZ + maxZ) / 2;
+                const scale = Math.max(maxX - minX, maxZ - minZ) / 20;
+                
+                return data.map(p => new THREE.Vector3(
+                    (p[0] - centerX) / scale,
+                    0.2,
+                    (p[2] - centerZ) / scale
+                ));
             }}
             
             function createEnvironment() {{
@@ -1551,8 +1631,8 @@ def create_3d_circuit(gp_name="Default", year=2023):
     return html_code
 
 
-def render_3d_circuit(gp_name, year):
-    components.html(create_3d_circuit(gp_name, year), height=500, scrolling=False)
+def render_3d_circuit(gp_name, year, svg_track_path=None):
+    components.html(create_3d_circuit(gp_name, year, svg_track_path), height=500, scrolling=False)
 
 
 def render_zandvoort_3d():
